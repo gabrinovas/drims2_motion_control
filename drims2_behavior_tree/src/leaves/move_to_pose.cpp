@@ -1,13 +1,13 @@
-#include <drims2_behavior_tree/leaves/move_to_cartesian.hpp>
+#include <drims2_behavior_tree/leaves/move_to_pose.hpp>
 
-MoveToCartesian::MoveToCartesian(const std::string& name,
+MoveToPose::MoveToPose(const std::string& name,
                          const BT::NodeConfig& conf,
                          const BT::RosNodeParams& params)
-  : RosActionNode<drims2_msgs::action::MoveToCartesian>(name, conf, params)
+  : RosActionNode<drims2_msgs::action::MoveToPose>(name, conf, params)
 {
 }
 
-bool MoveToCartesian::setGoal(RosActionNode::Goal &goal)
+bool MoveToPose::setGoal(RosActionNode::Goal &goal)
 {
   auto pose_target = getInput<geometry_msgs::msg::PoseStamped>("pose_target").value();
   goal.pose_target = pose_target;
@@ -17,7 +17,7 @@ bool MoveToCartesian::setGoal(RosActionNode::Goal &goal)
   return true;
 }
 
-BT::NodeStatus MoveToCartesian::onResultReceived(const RosActionNode::WrappedResult &wr)
+BT::NodeStatus MoveToPose::onResultReceived(const RosActionNode::WrappedResult &wr)
 {
   return BT::NodeStatus::SUCCESS;
   // RCLCPP_INFO(node_.lock()->get_logger(), "%s: onResultReceived. Done = %s", name().c_str(),
@@ -31,18 +31,18 @@ BT::NodeStatus MoveToCartesian::onResultReceived(const RosActionNode::WrappedRes
   // }
 }
 
-BT::NodeStatus MoveToCartesian::onFailure(BT::ActionNodeErrorCode error)
+BT::NodeStatus MoveToPose::onFailure(BT::ActionNodeErrorCode error)
 {
   // RCLCPP_ERROR( node_.lock()->get_logger(), "%s: onFailure with error: %s", name().c_str(), toStr(error) );
   return BT::NodeStatus::FAILURE;
 }
 
-BT::NodeStatus MoveToCartesian::onFeedback(const std::shared_ptr<const drims2_msgs::action::MoveToCartesian::Feedback> feedback)
+BT::NodeStatus MoveToPose::onFeedback(const std::shared_ptr<const drims2_msgs::action::MoveToPose::Feedback> feedback)
 {
   (void) feedback;
   return BT::NodeStatus::RUNNING;
 }
 
 // Plugin registration.
-// The class MoveToCartesian will self register with name  "MoveToCartesian".
-CreateRosNodePlugin(MoveToCartesian, "MoveToCartesian");
+// The class MoveToPose will self register with name  "MoveToPose".
+CreateRosNodePlugin(MoveToPose, "MoveToPose");

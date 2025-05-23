@@ -14,7 +14,6 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
-
     ],
     install_requires=['setuptools',
                       'drims2_msgs'],
@@ -26,6 +25,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            f'motion_server = {package_name}.motion_server:main',
         ],
     },
 )

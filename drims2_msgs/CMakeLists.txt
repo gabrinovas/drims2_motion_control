@@ -16,7 +16,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/MoveToJoint.action"
-  "action/MoveToCartesian.action"
+  "action/MoveToPose.action"
   DEPENDENCIES builtin_interfaces std_msgs geometry_msgs moveit_msgs
 )
 

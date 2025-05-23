@@ -1,0 +1,4 @@
+motion_server_node:
+  ros__parameters:
+    move_group_name: "ur_robot"
+    target_link: "ur10e_tool0"

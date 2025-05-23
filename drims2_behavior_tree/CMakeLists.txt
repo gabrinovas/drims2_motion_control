@@ -26,10 +26,10 @@ add_executable(bt_executer_node
 )
 ament_target_dependencies(bt_executer_node ${dependencies})
 
-add_library(move_to_cartesian SHARED
-    src/leaves/move_to_cartesian.cpp
+add_library(move_to_pose SHARED
+    src/leaves/move_to_pose.cpp
 )
-list(APPEND plugin_libs move_to_cartesian)
+list(APPEND plugin_libs move_to_pose)
 
 # add_library(move_to_joint SHARED
 #     src/leaves/move_to_joint.cpp

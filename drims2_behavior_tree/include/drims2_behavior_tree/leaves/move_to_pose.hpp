@@ -1,13 +1,13 @@
 #include "behaviortree_ros2/bt_action_node.hpp"
 #include "behaviortree_ros2/plugins.hpp"
 
-#include <drims2_msgs/action/move_to_cartesian.hpp>
+#include <drims2_msgs/action/move_to_pose.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
-class MoveToCartesian: public BT::RosActionNode<drims2_msgs::action::MoveToCartesian>
+class MoveToPose: public BT::RosActionNode<drims2_msgs::action::MoveToPose>
 {
 public:
-  MoveToCartesian(const std::string& name,
+MoveToPose(const std::string& name,
                   const BT::NodeConfig& conf,
                   const BT::RosNodeParams& params);
 
@@ -23,7 +23,7 @@ public:
   bool setGoal(Goal& goal) override;
   BT::NodeStatus onResultReceived(const WrappedResult& wr) override;
   BT::NodeStatus onFailure(BT::ActionNodeErrorCode error) override;
-  BT::NodeStatus onFeedback(const std::shared_ptr<const drims2_msgs::action::MoveToCartesian::Feedback> feedback) override;
+  BT::NodeStatus onFeedback(const std::shared_ptr<const drims2_msgs::action::MoveToPose::Feedback> feedback) override;
 
 // private:
 //   std::string ns_, world_;
