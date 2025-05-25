@@ -39,9 +39,12 @@ list(APPEND plugin_libs move_to_pose)
 foreach(bt_plugin ${plugin_libs})
   # target_link_libraries(${bt_plugin} ${dependencies})
   ament_target_dependencies(${bt_plugin} ${dependencies})
+  target_compile_definitions(${bt_plugin} PRIVATE BT_PLUGIN_EXPORT)
+
   endforeach()
 
-install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY launch config trees DESTINATION share/${PROJECT_NAME})
+# install(TARGETS ${plugin_libs} DESTINATION lib)
 
 install(TARGETS
   bt_executer_node

@@ -7,6 +7,8 @@
 #include <behaviortree_ros2/bt_action_node.hpp>
 #include <behaviortree_ros2/plugins.hpp>
 #include <behaviortree_cpp/utils/shared_library.h>
+#include "behaviortree_ros2/bt_executor_parameters.hpp"
+#include "behaviortree_ros2/bt_utils.hpp"
 
 
 int main(int argc, char ** argv)
@@ -27,16 +29,28 @@ int main(int argc, char ** argv)
   node->declare_parameter("bt_xml_file", bt_xml_file);
 
   node->get_parameter("plugins", plugins);
-  node->get_parameter("bt_xml_file", bt_xml_file);
   node->get_parameter("bt_package", bt_package);
+  node->get_parameter("bt_xml_file", bt_xml_file);
 
 
   BT::BehaviorTreeFactory factory;
   BT::SharedLibrary loader;
 
+  bt_server::Params bt_execution_param;
+
+  bt_execution_param.plugins.push_back("move_to_pose");
+  BT::RosNodeParams params;
+  params.nh = node;
+  params.server_timeout = std::chrono::milliseconds(10000);
+  params.wait_for_server_timeout = std::chrono::milliseconds(10000);
+
   for (const auto & plugin : plugins) {
     RCLCPP_INFO(node->get_logger(), "Loading BT Node: [%s]", plugin.c_str());
-    factory.registerFromPlugin(loader.getOSName(plugin));
+    // factory.registerFromPlugin(loader.getOSName(plugin));
+    // BT::RegisterPlugins(bt_execution_param, factory, node);
+    RegisterRosNode(factory,loader.getOSName(plugin),params);
+
+    
   }
   
   // BT::RosNodeParams params;
@@ -53,6 +67,7 @@ int main(int argc, char ** argv)
   BT::Tree tree = factory.createTreeFromFile(xml_file);
   RCLCPP_INFO_STREAM(node->get_logger(),"Behavior tree succesfully created!");
 
+  
   //   RCLCPP_INFO_STREAM(node->get_logger(),"Path to plugin loaded "<<path_to_plugin);
   // RegisterRosNode(factory,path_to_plugin,params);
   

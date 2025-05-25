@@ -1,0 +1,14 @@
+bt_executer_node:
+  ros__parameters:
+    bt_xml_file: example.xml
+    plugins:
+      - move_to_pose
+    bt_package: drims2_behavior_tree
+bt_server:
+  ros__parameters:
+    action_name: bt_execution
+    behavior_trees: '{drims2_behavior_tree/tree/example.xml}'
+    groot2_port: 1667.0
+    plugins: '{move_to_pose}'
+    ros_plugins_timeout: 1000.0
+    tick_frequency: 100.0
