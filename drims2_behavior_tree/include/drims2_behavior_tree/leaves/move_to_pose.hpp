@@ -15,7 +15,6 @@ inline std::vector<double> convertFromString(StringView str)
     for(auto & element: parts)
     {
       vec.push_back(convertFromString<double>(element));
-      std::cerr << element << std::endl;
     }
 //     std::string s(str);
 //     std::istringstream iss(s);

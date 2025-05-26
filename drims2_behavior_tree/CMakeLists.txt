@@ -31,10 +31,10 @@ add_library(move_to_pose SHARED
 )
 list(APPEND plugin_libs move_to_pose)
 
-# add_library(move_to_joint SHARED
-#     src/leaves/move_to_joint.cpp
-# )
-# list(APPEND plugin_libs move_to_joint)
+add_library(move_to_joint SHARED
+    src/leaves/move_to_joint.cpp
+)
+list(APPEND plugin_libs move_to_joint)
 
 foreach(bt_plugin ${plugin_libs})
   # target_link_libraries(${bt_plugin} ${dependencies})
@@ -44,7 +44,6 @@ foreach(bt_plugin ${plugin_libs})
   endforeach()
 
 install(DIRECTORY launch config trees DESTINATION share/${PROJECT_NAME})
-# install(TARGETS ${plugin_libs} DESTINATION lib)
 
 install(TARGETS
   bt_executer_node

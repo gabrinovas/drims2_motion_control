@@ -9,15 +9,9 @@ MoveToPose::MoveToPose(const std::string& name,
 
 bool MoveToPose::setGoal(RosActionNode::Goal &goal)
 {
-  auto pose_target = getInput<geometry_msgs::msg::PoseStamped>("pose_target");
-  std::cerr << "hereee pre" << std::endl;
+  RCLCPP_INFO(node_.lock()->get_logger(), "MoveToPose ticked.");
 
-  std::vector<double> prova = getInput<std::vector<double>>("position").value();
-  std::cerr << "hereee" << std::endl;
-  for(const auto & element : prova) 
-  {
-    std::cerr << element << std::endl;
-  }
+  auto pose_target = getInput<geometry_msgs::msg::PoseStamped>("pose_target");
   if (pose_target) {
     goal.pose_target = pose_target.value();
     return true;
