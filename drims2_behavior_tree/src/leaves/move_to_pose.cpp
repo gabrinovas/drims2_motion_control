@@ -1,13 +1,14 @@
 #include <drims2_behavior_tree/leaves/move_to_pose.hpp>
 
-MoveToPose::MoveToPose(const std::string& name,
-                         const BT::NodeConfig& conf,
-                         const BT::RosNodeParams& params)
-  : RosActionNode<drims2_msgs::action::MoveToPose>(name, conf, params)
+MoveToPose::MoveToPose(
+  const std::string & name,
+  const BT::NodeConfig & conf,
+  const BT::RosNodeParams & params)
+: RosActionNode<drims2_msgs::action::MoveToPose>(name, conf, params)
 {
 }
 
-bool MoveToPose::setGoal(RosActionNode::Goal &goal)
+bool MoveToPose::setGoal(RosActionNode::Goal & goal)
 {
   RCLCPP_INFO(node_.lock()->get_logger(), "MoveToPose ticked.");
 
@@ -48,7 +49,7 @@ bool MoveToPose::setGoal(RosActionNode::Goal &goal)
   return true;
 }
 
-BT::NodeStatus MoveToPose::onResultReceived(const RosActionNode::WrappedResult &wr)
+BT::NodeStatus MoveToPose::onResultReceived(const RosActionNode::WrappedResult & wr)
 {
   return BT::NodeStatus::SUCCESS;
   // RCLCPP_INFO(node_.lock()->get_logger(), "%s: onResultReceived. Done = %s", name().c_str(),
@@ -68,7 +69,8 @@ BT::NodeStatus MoveToPose::onFailure(BT::ActionNodeErrorCode error)
   return BT::NodeStatus::FAILURE;
 }
 
-BT::NodeStatus MoveToPose::onFeedback(const std::shared_ptr<const drims2_msgs::action::MoveToPose::Feedback> feedback)
+BT::NodeStatus MoveToPose::onFeedback(
+  const std::shared_ptr<const drims2_msgs::action::MoveToPose::Feedback> feedback)
 {
   (void) feedback;
   return BT::NodeStatus::RUNNING;

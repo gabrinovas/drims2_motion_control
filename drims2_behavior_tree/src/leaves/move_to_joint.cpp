@@ -1,13 +1,14 @@
 #include <drims2_behavior_tree/leaves/move_to_joint.hpp>
 
-MoveToJoint::MoveToJoint(const std::string& name,
-                         const BT::NodeConfig& conf,
-                         const BT::RosNodeParams& params)
-  : RosActionNode<drims2_msgs::action::MoveToJoint>(name, conf, params)
+MoveToJoint::MoveToJoint(
+  const std::string & name,
+  const BT::NodeConfig & conf,
+  const BT::RosNodeParams & params)
+: RosActionNode<drims2_msgs::action::MoveToJoint>(name, conf, params)
 {
 }
 
-bool MoveToJoint::setGoal(RosActionNode::Goal &goal)
+bool MoveToJoint::setGoal(RosActionNode::Goal & goal)
 {
   RCLCPP_INFO(node_.lock()->get_logger(), "MoveToJoint ticked.");
 
@@ -15,16 +16,12 @@ bool MoveToJoint::setGoal(RosActionNode::Goal &goal)
 
   if (joint_target) {
     goal.joint_target = joint_target.value();
-    for(auto& joint_value: goal.joint_target)
-    {
-        std::cerr << "Joint value: " << joint_value << std::endl;
-    }
     return true;
   }
   return false;
 }
 
-BT::NodeStatus MoveToJoint::onResultReceived(const RosActionNode::WrappedResult &wr)
+BT::NodeStatus MoveToJoint::onResultReceived(const RosActionNode::WrappedResult & wr)
 {
   return BT::NodeStatus::SUCCESS;
   // RCLCPP_INFO(node_.lock()->get_logger(), "%s: onResultReceived. Done = %s", name().c_str(),
@@ -44,7 +41,8 @@ BT::NodeStatus MoveToJoint::onFailure(BT::ActionNodeErrorCode error)
   return BT::NodeStatus::FAILURE;
 }
 
-BT::NodeStatus MoveToJoint::onFeedback(const std::shared_ptr<const drims2_msgs::action::MoveToJoint::Feedback> feedback)
+BT::NodeStatus MoveToJoint::onFeedback(
+  const std::shared_ptr<const drims2_msgs::action::MoveToJoint::Feedback> feedback)
 {
   (void) feedback;
   return BT::NodeStatus::RUNNING;

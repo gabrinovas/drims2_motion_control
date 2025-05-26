@@ -36,9 +36,6 @@ int main(int argc, char ** argv)
   BT::BehaviorTreeFactory factory;
   BT::SharedLibrary loader;
 
-  bt_server::Params bt_execution_param;
-
-  bt_execution_param.plugins.push_back("move_to_pose");
   BT::RosNodeParams params;
   params.nh = node;
   params.server_timeout = std::chrono::milliseconds(10000);
@@ -46,18 +43,8 @@ int main(int argc, char ** argv)
 
   for (const auto & plugin : plugins) {
     RCLCPP_INFO(node->get_logger(), "Loading BT Node: [%s]", plugin.c_str());
-    // factory.registerFromPlugin(loader.getOSName(plugin));
-    // BT::RegisterPlugins(bt_execution_param, factory, node);
-    RegisterRosNode(factory,loader.getOSName(plugin),params);
-
-    
+    RegisterRosNode(factory, loader.getOSName(plugin), params);
   }
-  
-  // BT::RosNodeParams params;
-  // params.nh = node;
-  // params.server_timeout = std::chrono::milliseconds(10000);
-  // params.wait_for_server_timeout = std::chrono::milliseconds(10000);
-
 
   std::string pkgpath = ament_index_cpp::get_package_share_directory(bt_package);
   std::string xml_file = pkgpath + "/trees/" + bt_xml_file;
@@ -65,18 +52,13 @@ int main(int argc, char ** argv)
   RCLCPP_INFO(node->get_logger(), "Loading BT: [%s]", xml_file.c_str());
 
   BT::Tree tree = factory.createTreeFromFile(xml_file);
-  RCLCPP_INFO_STREAM(node->get_logger(),"Behavior tree succesfully created!");
+  RCLCPP_INFO_STREAM(node->get_logger(), "Behavior tree succesfully created!");
 
-  
-  //   RCLCPP_INFO_STREAM(node->get_logger(),"Path to plugin loaded "<<path_to_plugin);
-  // RegisterRosNode(factory,path_to_plugin,params);
-  
-  RCLCPP_INFO_STREAM(node->get_logger(),"Starting the execution of the behavior tree..");
+  RCLCPP_INFO_STREAM(node->get_logger(), "Starting the execution of the behavior tree..");
 
   rclcpp::Rate rate(50);
   bool finish = false;
-  while (!finish && rclcpp::ok())
-  {
+  while (!finish && rclcpp::ok()) {
     finish = tree.rootNode()->executeTick() != BT::NodeStatus::RUNNING;
     executor.spin_some();
     rate.sleep();
