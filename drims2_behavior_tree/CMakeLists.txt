@@ -11,12 +11,14 @@ find_package(rclcpp REQUIRED)
 find_package(behaviortree_cpp REQUIRED)
 find_package(behaviortree_ros2 REQUIRED)
 find_package(drims2_msgs REQUIRED)
+find_package(control_msgs REQUIRED)
 
 set(dependencies
   rclcpp
   behaviortree_cpp
   behaviortree_ros2
   drims2_msgs
+  control_msgs
 )
     
 include_directories(include)
@@ -36,12 +38,17 @@ add_library(move_to_joint SHARED
 )
 list(APPEND plugin_libs move_to_joint)
 
+add_library(gripper_command SHARED
+    src/leaves/gripper_command.cpp
+)
+list(APPEND plugin_libs gripper_command)
+
 foreach(bt_plugin ${plugin_libs})
   # target_link_libraries(${bt_plugin} ${dependencies})
   ament_target_dependencies(${bt_plugin} ${dependencies})
   target_compile_definitions(${bt_plugin} PRIVATE BT_PLUGIN_EXPORT)
 
-  endforeach()
+endforeach()
 
 install(DIRECTORY launch config trees DESTINATION share/${PROJECT_NAME})
 

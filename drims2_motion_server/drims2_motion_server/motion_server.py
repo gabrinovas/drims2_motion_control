@@ -20,11 +20,11 @@ class MotionServer(Node):
 
         # self.declare_parameter('motion_server_config_path', '')
         self.declare_parameter('move_group_name', '')
-        self.declare_parameter('target_link', '')
+        self.declare_parameter('target_frame', '')
 
         # self.get_logger().info(self.get_parameter('motion_server_config_path').get_parameter_value().string_value)
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
-        self.target_link = self.get_parameter('target_link').get_parameter_value().string_value
+        self.target_frame = self.get_parameter('target_frame').get_parameter_value().string_value
 
         try:     
             self.moveit_core = MoveItPy(node_name="moveit_py")
@@ -58,13 +58,12 @@ class MotionServer(Node):
         self.robot_arm.set_start_state_to_current_state()
         goal_pose: PoseStamped = goal_handle.request.pose_target
         self.robot_arm.set_goal_state(pose_stamped_msg = goal_pose, 
-                                      pose_link="ur10e_tool0")
+                                      pose_link=self.target_frame)
         plan_solution = self.robot_arm.plan()
         action_result = MoveToPose.Result()
         if plan_solution:
             robot_trajectory = plan_solution.trajectory
             execution_result = self.moveit_core.execute(self.move_group_name, robot_trajectory, blocking=True)
-            
             if execution_result:     
                 action_result.result.val = action_result.result.SUCCESS
             else:
@@ -107,7 +106,6 @@ class MotionServer(Node):
         if plan_solution:
             robot_trajectory = plan_solution.trajectory
             execution_result = self.moveit_core.execute(self.move_group_name, robot_trajectory, blocking=True)
-            
             if execution_result:     
                 action_result.result.val = action_result.result.SUCCESS
             else:

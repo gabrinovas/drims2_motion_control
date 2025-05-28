@@ -1,9 +1,14 @@
  <root BTCPP_format="4" >
      <BehaviorTree ID="MainTree">
         <Sequence>
-            <MoveToPose action_name= "/move_to_pose" frame_id="ur10e_base_link" position="-0.28;-0.16;0.8" orientation="0.0;0.0;0.0;1.0"/>
-            <MoveToJoint action_name= "/move_to_joint" joint_target="1.5;-4.0;2.4;-1.5;1.5;0.0"/>
-
+            <GripperCommand action_name="/robotiq_action_controller/gripper_cmd" position="0.0" max_effort="1.0"/>
+            <Sleep msec="1000" />
+            <MoveToPose action_name="/move_to_pose" frame_id="ur10e_base_link" position="-0.28;-0.16;0.8" orientation="0.0;0.0;0.0;1.0"/>
+            <GripperCommand action_name="/robotiq_action_controller/gripper_cmd" position="0.79" max_effort="1.0"/>
+            <Sleep msec="1000" />
+            <MoveToJoint action_name="/move_to_joint" joint_target="1.5;-4.0;2.4;-1.5;1.5;0.0"/>
+            <GripperCommand action_name="/robotiq_action_controller/gripper_cmd" position="0.0" max_effort="1.0"/>
+            <Sleep msec="1000" />
         </Sequence>
      </BehaviorTree>
  </root> 
