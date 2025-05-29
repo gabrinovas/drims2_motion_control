@@ -7,7 +7,7 @@ package_name = 'drims2_motion_server'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(exclude=['test']),
+    packages=find_packages(),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             f'motion_server = {package_name}.motion_server:main',
+            f'motion_client_test = examples.motion_client_test:main',
         ],
     },
 )
