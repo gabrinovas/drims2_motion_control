@@ -43,6 +43,11 @@ add_library(gripper_command SHARED
 )
 list(APPEND plugin_libs gripper_command)
 
+add_library(dice_identification SHARED
+    src/leaves/dice_identification.cpp
+)
+list(APPEND plugin_libs dice_identification)
+
 foreach(bt_plugin ${plugin_libs})
   # target_link_libraries(${bt_plugin} ${dependencies})
   ament_target_dependencies(${bt_plugin} ${dependencies})
