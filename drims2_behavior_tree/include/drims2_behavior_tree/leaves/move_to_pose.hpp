@@ -33,6 +33,7 @@ public:
     return providedBasicPorts(
     {
       BT::InputPort<geometry_msgs::msg::PoseStamped>("pose_target"),
+      BT::InputPort<bool>("cartesian_motion"),
       BT::InputPort<std::string>("frame_id"),
       BT::InputPort<std::vector<double>>("position"),
       BT::InputPort<std::vector<double>>("orientation"),

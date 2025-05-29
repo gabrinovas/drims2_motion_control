@@ -17,6 +17,10 @@ bool MoveToPose::setGoal(RosActionNode::Goal & goal)
     goal.pose_target = pose_target.value();
     return true;
   }
+  bool cartesian_motion = false;
+  if (!getInput("cartesian_motion", cartesian_motion)) {
+    RCLCPP_INFO(node_.lock()->get_logger(), "Missing parameter [cartesian_motion], set it as false by default");
+  }
 
   // If pose_target is not set, build it from components
   geometry_msgs::msg::PoseStamped pose;
@@ -46,6 +50,8 @@ bool MoveToPose::setGoal(RosActionNode::Goal & goal)
   pose.pose.orientation.w = orientation[3];
 
   goal.pose_target = pose;
+  goal.cartesian_motion = cartesian_motion;
+
   return true;
 }
 

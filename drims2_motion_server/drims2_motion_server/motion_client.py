@@ -15,13 +15,14 @@ class MotionClient(Node):
         if not self.move_to_joint_client.wait_for_server(timeout_sec=10.0):
             raise RuntimeError("MoveToJoint action server not available")
 
-    def move_to_pose(self, pose: PoseStamped):
+    def move_to_pose(self, pose: PoseStamped, cartesian_motion: bool = False):
         """API ROS-Free: Move to pose"""
         if not self.move_to_pose_client.wait_for_server(timeout_sec=5.0):
             raise RuntimeError("MoveToPose action server not available")
 
         goal_msg = MoveToPose.Goal()
         goal_msg.pose_target = pose
+        goal_msg.cartesian_motion = cartesian_motion
 
         future = self.move_to_pose_client.send_goal_async(goal_msg)
         rclpy.spin_until_future_complete(self, future)

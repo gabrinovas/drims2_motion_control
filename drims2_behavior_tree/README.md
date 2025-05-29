@@ -17,4 +17,4 @@ The following custom BT **action nodes** are available:
 |-------------------|------------------------------------------------------------------------------|------------------------------------------------------------|
 | `GripperCommand`  | `position` (double), `max_effort` (double)                                  | Sends a gripper command with target position and max effort. |
 | `MoveToJoint`     | `joint_target` (vector\<double>)                                             | Moves the robot to a specified joint configuration.         |
-| `MoveToPose`      | `pose_target` (PoseStamped) **or**<br>`frame_id` (string), `position` (vec3), `orientation` (vec4) | Moves the robot to a target pose. Accepts a direct pose_target as `PoseStamped.msg` or decomposed components. |
+| MoveToPose   | `pose_target` (PoseStamped) **or**<br>`frame_id` (string), `position` (vector<double>, size=3), `orientation` (vector<double>, size=4),<br>`cartesian_motion` (bool, optional, default: false) | Moves the robot to a target pose. Accepts either a full `pose_target` or pose components. The optional `cartesian_motion` flag enables Cartesian path planning when set to true. |

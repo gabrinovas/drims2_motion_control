@@ -6,11 +6,11 @@ from rclpy.action.server import ServerGoalHandle
 from rclpy.node import Node
 
 from drims2_msgs.action import MoveToPose, MoveToJoint
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped
 from moveit_msgs.msg import MoveItErrorCodes
-from moveit.planning import MoveItPy
-
-# from moveit.core.robot_state import RobotState
+from moveit.planning import MoveItPy, PlanRequestParameters
+from tf2_ros import TransformBroadcaster
+from drims2_motion_server.drims2_utils import CartesianPlannerParams
 
 
 class MotionServer(Node):
@@ -21,6 +21,12 @@ class MotionServer(Node):
         # self.declare_parameter('motion_server_config_path', '')
         self.declare_parameter('move_group_name', '')
         self.declare_parameter('target_frame', '')
+
+        self.declare_parameter(CartesianPlannerParams.PIPELINE, 'pilz_industrial_motion_planner')
+        self.declare_parameter(CartesianPlannerParams.PLANNER_ID, 'LIN')
+        self.declare_parameter(CartesianPlannerParams.PLANNING_TIME, 50.0)
+        self.declare_parameter(CartesianPlannerParams.MAX_VEL_SCALING, 0.05)
+        self.declare_parameter(CartesianPlannerParams.MAX_ACC_SCALING, 0.05)
 
         # self.get_logger().info(self.get_parameter('motion_server_config_path').get_parameter_value().string_value)
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
@@ -49,6 +55,7 @@ class MotionServer(Node):
             execute_callback=self.move_to_joint_callback,
             cancel_callback=self.move_to_joint_cancel_callback,
         )
+        self.tf_broadcaster = TransformBroadcaster(self)
 
         self.get_logger().info("Motion server is ready to receive requests")
 
@@ -57,13 +64,31 @@ class MotionServer(Node):
         # robot_state = RobotState(robot_model)
         self.robot_arm.set_start_state_to_current_state()
         goal_pose: PoseStamped = goal_handle.request.pose_target
+        cartesian_motion = goal_handle.request.cartesian_motion
+
+
         self.robot_arm.set_goal_state(pose_stamped_msg = goal_pose, 
                                       pose_link=self.target_frame)
-        plan_solution = self.robot_arm.plan()
+        self.broadcast_pose_goal_tf(goal_pose)
+
+        if cartesian_motion:
+            self.get_logger().info(f"Move to Pose with linear cartesian motion.")
+            plan_request_parameters = CartesianPlannerParams.get_plan_request_parameters(self,self.moveit_core)
+            plan_solution = self.robot_arm.plan(plan_request_parameters)
+            self.get_logger().info(f"Plan solution")
+        else:
+            self.get_logger().info(f"Move to Pose with joint motion.")
+            plan_solution = self.robot_arm.plan()
+            self.get_logger().info(f"Plan solution")
+
+
         action_result = MoveToPose.Result()
         if plan_solution:
             robot_trajectory = plan_solution.trajectory
+            self.get_logger().info(f"Trj pre executed")
             execution_result = self.moveit_core.execute(self.move_group_name, robot_trajectory, blocking=True)
+            self.get_logger().info(f"Trj executed")
+
             if execution_result:     
                 action_result.result.val = action_result.result.SUCCESS
             else:
@@ -121,6 +146,20 @@ class MotionServer(Node):
         # moveit_py.controller_manager.ExecutionStatus
 
         return action_result
+    def broadcast_pose_goal_tf(self, pose_goal):
+        t = TransformStamped()
+
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = pose_goal.header.frame_id
+        t.child_frame_id = "pose_goal_frame" 
+
+        t.transform.translation.x = pose_goal.pose.position.x
+        t.transform.translation.y = pose_goal.pose.position.y
+        t.transform.translation.z = pose_goal.pose.position.z
+
+        t.transform.rotation = pose_goal.pose.orientation
+
+        self.tf_broadcaster.sendTransform(t)
 
 
 def main(args=None):
