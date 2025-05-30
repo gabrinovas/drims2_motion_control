@@ -54,8 +54,8 @@ def get_moveit_configs():
         .trajectory_execution(file_path=moveit_controllers_path)
         .robot_description_kinematics()
         .moveit_cpp(
-            file_path=get_package_share_directory("python_examples")
-            + "/config/motion_planning_python.yaml"
+            file_path=get_package_share_directory("drims2_motion_server")
+            + "/config/moveit_config.yaml"
         )
 
         .to_moveit_configs()
