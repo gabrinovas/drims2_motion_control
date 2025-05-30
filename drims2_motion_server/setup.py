@@ -20,13 +20,14 @@ setup(
     zip_safe=True,
     maintainer='kalman',
     maintainer_email='samuele.sandrini@polito.it',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Motion server for DRIMS2',
+    license='Apache License 2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             f'motion_server = {package_name}.motion_server:main',
             f'motion_client_test = examples.motion_client_test:main',
+            f'fake_dice_identification_server = examples.fake_dice_identification_server:main',
         ],
     },
 )

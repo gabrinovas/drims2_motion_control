@@ -5,4 +5,5 @@ bt_executer_node:
       - move_to_pose
       - move_to_joint
       - gripper_command
+      - dice_identification
     bt_package: drims2_behavior_tree
