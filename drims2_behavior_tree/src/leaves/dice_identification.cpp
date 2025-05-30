@@ -24,7 +24,6 @@ BT::NodeStatus DiceIdentification::onResponseReceived(const Response::SharedPtr&
                 response->pose.pose.orientation.y,
                 response->pose.pose.orientation.z,
                 response->pose.pose.orientation.w);
-
     return BT::NodeStatus::SUCCESS;
   }
   else
