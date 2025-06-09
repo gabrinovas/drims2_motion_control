@@ -3,10 +3,12 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
 #include <behaviortree_cpp/bt_factory.h>
+#include <behaviortree_cpp/utils/shared_library.h>
+#include "behaviortree_cpp/loggers/groot2_publisher.h"
+
 #include <behaviortree_ros2/ros_node_params.hpp>
 #include <behaviortree_ros2/bt_action_node.hpp>
 #include <behaviortree_ros2/plugins.hpp>
-#include <behaviortree_cpp/utils/shared_library.h>
 #include "behaviortree_ros2/bt_executor_parameters.hpp"
 #include "behaviortree_ros2/bt_utils.hpp"
 
@@ -52,6 +54,9 @@ int main(int argc, char ** argv)
   RCLCPP_INFO(node->get_logger(), "Loading BT: [%s]", xml_file.c_str());
 
   BT::Tree tree = factory.createTreeFromFile(xml_file);
+
+  BT::Groot2Publisher publisher(tree);
+
   RCLCPP_INFO_STREAM(node->get_logger(), "Behavior tree succesfully created!");
 
   RCLCPP_INFO_STREAM(node->get_logger(), "Starting the execution of the behavior tree..");
