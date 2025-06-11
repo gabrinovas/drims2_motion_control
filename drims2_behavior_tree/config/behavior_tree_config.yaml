@@ -6,4 +6,6 @@ bt_executer_node:
       - move_to_joint
       - gripper_command
       - dice_identification
+      - attach_object
+      - detach_object
     bt_package: drims2_behavior_tree

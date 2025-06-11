@@ -6,8 +6,9 @@ from rclpy.action.server import ServerGoalHandle
 from rclpy.node import Node
 
 from drims2_msgs.action import MoveToPose, MoveToJoint
+from drims2_msgs.srv import AttachObject, DetachObject
 from geometry_msgs.msg import PoseStamped, TransformStamped
-from moveit_msgs.msg import MoveItErrorCodes
+from moveit_msgs.msg import MoveItErrorCodes, CollisionObject, AttachedCollisionObject
 from moveit.planning import MoveItPy, PlanRequestParameters
 from tf2_ros import TransformBroadcaster
 from drims2_motion_server.drims2_utils import CartesianPlannerParams
@@ -33,7 +34,7 @@ class MotionServer(Node):
         self.target_frame = self.get_parameter('target_frame').get_parameter_value().string_value
 
         try:     
-            self.moveit_core = MoveItPy(node_name="moveit_py")
+            self.moveit_core = MoveItPy(node_name="moveit_py", provide_planning_service=False)
         except RuntimeError as exception:
             raise exception
         try:
@@ -55,6 +56,17 @@ class MotionServer(Node):
             execute_callback=self.move_to_joint_callback,
             cancel_callback=self.move_to_joint_cancel_callback,
         )
+        self.attach_service = self.create_service(
+            AttachObject,
+            'attach_object',
+            self.attach_object_callback
+        )
+        self.detach_service = self.create_service(
+            DetachObject,
+            'detach_object',
+            self.detach_object_callback
+        )
+
         self.tf_broadcaster = TransformBroadcaster(self)
 
         self.get_logger().info("Motion server is ready to receive requests")
@@ -160,6 +172,37 @@ class MotionServer(Node):
         t.transform.rotation = pose_goal.pose.orientation
 
         self.tf_broadcaster.sendTransform(t)
+
+    def attach_object_callback(self, request, response):
+        self.get_logger().info(f"Attaching object '{request.object_id}' to frame '{request.target_frame_id}'")
+        planning_scene_monitor = self.moveit_core.get_planning_scene_monitor()
+        with planning_scene_monitor.read_write() as scene:
+            attached_object = AttachedCollisionObject()
+            attached_object.link_name = request.target_frame_id
+            attached_object.object.id = request.object_id
+            attached_object.object.operation = CollisionObject.ADD
+            attached_object.touch_links = [request.target_frame_id]
+            
+            result = scene.process_attached_collision_object(attached_object)
+            response.success = result
+            scene.current_state.update()
+        
+        return response
+
+
+    def detach_object_callback(self, request, response):
+        self.get_logger().info(f"Detaching object '{request.object_id}'")
+        planning_scene_monitor = self.moveit_core.get_planning_scene_monitor()
+        with planning_scene_monitor.read_write() as scene:
+            attached_object = AttachedCollisionObject()
+            attached_object.object.id = request.object_id
+            attached_object.object.operation = CollisionObject.REMOVE
+            
+            result = scene.process_attached_collision_object(attached_object)
+            response.success = result
+            scene.current_state.update()
+        
+        return response
 
 
 def main(args=None):

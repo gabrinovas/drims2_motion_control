@@ -18,6 +18,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/MoveToJoint.action"
   "action/MoveToPose.action"
   "srv/DiceIdentification.srv"
+  "srv/AttachObject.srv"
+  "srv/DetachObject.srv"
   DEPENDENCIES builtin_interfaces std_msgs geometry_msgs moveit_msgs
 )
 

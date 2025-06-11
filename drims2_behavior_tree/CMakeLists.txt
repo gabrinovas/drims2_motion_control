@@ -47,6 +47,14 @@ add_library(dice_identification SHARED
     src/leaves/dice_identification.cpp
 )
 list(APPEND plugin_libs dice_identification)
+add_library(attach_object SHARED
+    src/leaves/attach_object.cpp
+)
+list(APPEND plugin_libs attach_object)
+add_library(detach_object SHARED
+    src/leaves/detach_object.cpp
+)
+list(APPEND plugin_libs detach_object)
 
 foreach(bt_plugin ${plugin_libs})
   # target_link_libraries(${bt_plugin} ${dependencies})

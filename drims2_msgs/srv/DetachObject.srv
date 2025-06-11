@@ -1,0 +1,5 @@
+# Request
+string object_id         # ID of the object to detach
+---
+# Response
+bool success             # True if the object was successfully detached

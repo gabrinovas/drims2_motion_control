@@ -1,0 +1,6 @@
+# Request
+string object_id         # ID of the object to attach
+string target_frame_id   # Frame to which the object should be attached
+---
+# Response
+bool success             # True if the object was successfully attached
