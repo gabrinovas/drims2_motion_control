@@ -7,13 +7,19 @@ This repository is part of the **DRIMS2 Summer School** and provides a motion co
 This repository contains the following ROS 2 packages:
 
 - **`drims2_msgs`**  
-  Contains the ROS 2 interface definitions for motion commands. Key messages include:
-  - `MoveToPose`
-  - `MoveToJoint`
+  Contains the ROS 2 interface definitions for motion commands. Key interfaces include:
+  - Actions:
+    - `MoveToPose`
+    - `MoveToJoint`
+  - Services:
+    - `AttachObject`
+    - `DetachObject`
+
 
 - **`drims2_motion_server`**  
-  Implements the motion **action server** that:
+  Implements the motion **action/service server** that:
   - Receives `MoveToPose` and `MoveToJoint` requests.
+  - Handles `AttachObject` and `DetachObject` service calls.
   - Interfaces with **MoveIt** to plan and execute robot motions.
 
 - **`drims2_behavior_tree`**  
