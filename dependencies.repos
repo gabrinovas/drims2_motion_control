@@ -3,3 +3,7 @@ repositories:
     type: git
     url: https://github.com/BehaviorTree/BehaviorTree.ROS2.git
     version: humble
+  moveit2:
+    type: git
+    url: https://github.com/CNR-STIIMA-IRAS/moveit2.git
+    version: pr-humble-python-bindings
