@@ -12,6 +12,8 @@ find_package(behaviortree_cpp REQUIRED)
 find_package(behaviortree_ros2 REQUIRED)
 find_package(drims2_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
+find_package(moveit_msgs REQUIRED)
+find_package(moveit_core REQUIRED)
 
 set(dependencies
   rclcpp
@@ -19,6 +21,8 @@ set(dependencies
   behaviortree_ros2
   drims2_msgs
   control_msgs
+  moveit_msgs
+  moveit_core
 )
     
 include_directories(include)
