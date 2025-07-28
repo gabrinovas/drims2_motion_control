@@ -18,15 +18,22 @@ def main() -> None:
     # print("Move to pose result:", result)
 
     # # Example: move_to_joint
-    # joint_goal = [0.1, -1.2, 1.0, -1.5, 1.2, 0.5]
-    # result = motion_client.move_to_joint(joint_goal)
-    # print("Move to joint result:", result)
+    joint_goal = [
+        -0.16410449298697685,    # shoulder_pan_joint
+        -1.3820258857637684,     # shoulder_lift_joint
+        1.6139817698694139,      # elbow_joint
+        -1.8017236579269869,     # wrist_1_joint
+        -1.5701870879802997,     # wrist_2_joint
+        -0.16411033649582998,    # wrist_3_joint
+    ]
+    result = motion_client.move_to_joint(joint_goal)
+    print("Move to joint result:", result)
 
     # # Example: attach_object
     # motion_client.attach_object("dice", "ur10e_tool0")
     # result = motion_client.move_to_pose(pose_msg)
     # motion_client.detach_object("dice")
-    motion_client.gripper_command(0.4)  # Open gripper
+    # motion_client.gripper_command(0.4)  # Open gripper
     rclpy.shutdown()
 
 if __name__ == '__main__':

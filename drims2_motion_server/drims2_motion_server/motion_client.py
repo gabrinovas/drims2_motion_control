@@ -24,8 +24,8 @@ class MotionClient(Node):
             raise RuntimeError("AttachObject service not available")
         if not self.detach_object_client.wait_for_service(timeout_sec=10.0):
             raise RuntimeError("DetachObject service not available")
-        if not self.gripper_client.wait_for_server(timeout_sec=10.0):
-            raise RuntimeError("GripperCommand action server not available")
+        # if not self.gripper_client.wait_for_server(timeout_sec=10.0):
+        #     raise RuntimeError("GripperCommand action server not available")
 
     def move_to_pose(self, pose: PoseStamped, cartesian_motion: bool = False):
         """API ROS-Free: Move to pose"""

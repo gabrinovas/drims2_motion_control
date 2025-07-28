@@ -1,7 +1,15 @@
 motion_server_node:
   ros__parameters:
     move_group_name: "ur_robot"
-    target_frame: "ur10e_tool0"
+    end_effector_name: "ur10e_tool0"
+    base_link_name: "base_link"
+    joint_names:
+      - "shoulder_pan_joint"
+      - "shoulder_lift_joint"
+      - "elbow_joint"
+      - "wrist_1_joint"
+      - "wrist_2_joint"
+      - "wrist_3_joint"
     
     cartesian_planner_config:
       planning_pipeline: "pilz_industrial_motion_planner"
