@@ -218,13 +218,15 @@ class MotionServer(Node):
         self.get_logger().info(f"Attaching object '{request.object_id}' to frame '{request.target_frame_id}'")
         self.moveit2.attach_collision_object(id=request.object_id,
                                              link_name=request.target_frame_id,
-                                             touch_links=[request.target_frame_id])        
+                                             touch_links=[request.target_frame_id])
+        response.success = True        
         return response
 
 
     def detach_object_callback(self, request, response):
         self.get_logger().info(f"Detaching object '{request.object_id}'")
         self.moveit2.detach_collision_object(request.object_id)
+        response.success = True
         return response
 
 
