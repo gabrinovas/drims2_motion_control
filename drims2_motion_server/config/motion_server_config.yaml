@@ -4,16 +4,16 @@ motion_server_node:
     end_effector_name: "ur10e_tool0"
     base_link_name: "base_link"
     joint_names:
-      - "shoulder_pan_joint"
-      - "shoulder_lift_joint"
-      - "elbow_joint"
-      - "wrist_1_joint"
-      - "wrist_2_joint"
-      - "wrist_3_joint"
-    
-    cartesian_planner_config:
-      planning_pipeline: "pilz_industrial_motion_planner"
-      planner_id: "LIN"
-      planning_time: 50.0
-      max_velocity_scaling_factor: 0.05
-      max_acceleration_scaling_factor: 0.05
+      - 'ur10e_shoulder_pan_joint'
+      - 'ur10e_shoulder_lift_joint'
+      - 'ur10e_elbow_joint'
+      - 'ur10e_wrist_1_joint'
+      - 'ur10e_wrist_2_joint'
+      - 'ur10e_wrist_3_joint'
+
+    cartesian_max_step: 0.0025
+    cartesian_fraction_threshold: 0.0
+    cartesian_jump_threshold: 0.0
+    cartesian_avoid_collisions: True
+    max_velocity: 0.5
+    max_acceleration: 0.5

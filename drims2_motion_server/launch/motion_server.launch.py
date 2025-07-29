@@ -22,46 +22,6 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-from moveit_configs_utils import MoveItConfigsBuilder
-
-
-def get_moveit_configs():
-    srdf_path = os.path.join(get_package_share_directory('ur_robotiq_moveit_config'), 'config', 'ur_robotiq.srdf')
-    joint_limits_path = os.path.join(get_package_share_directory('ur_robotiq_moveit_config'), 'config', 'joint_limits.yaml')
-    moveit_controllers_path = os.path.join(get_package_share_directory('ur_robotiq_bringup'), 'config', 'moveit_controllers.yaml')
-    pilz_limits_path = os.path.join(get_package_share_directory('ur_robotiq_moveit_config'), 'config', 'pilz_cartesian_limits.yaml')
-    robot_description_path = os.path.join(get_package_share_directory('ur_robotiq_description'), 'urdf', 'ur_robotiq.urdf.xacro') 
-
-    moveit_config = (
-        MoveItConfigsBuilder('ur_robotiq', package_name='ur_robotiq_moveit_config')
-        .robot_description(file_path=robot_description_path,
-                            mappings= {"fake_ur": 'true',
-                                       "fake_gripper": 'true', 
-                                       "ur_type": 'ur10e', 
-                                       "robot_name": 'ur10e', 
-                                       "tf_prefix": 'ur10e_', 
-                                       "tool_device_name": '/tmp/ttyUR', 
-                                       "use_tool_communication": 'false', 
-                                       "tool_tcp_port": '54321', 
-                                       "headless_mode": 'true',})
-        .robot_description_semantic(file_path=srdf_path)
-        .planning_scene_monitor(publish_robot_description=False,
-                                publish_robot_description_semantic=True,
-                                publish_planning_scene=True)
-        .planning_pipelines(default_planning_pipeline='ompl', pipelines=['ompl', 'chomp', 'pilz_industrial_motion_planner'])
-        .pilz_cartesian_limits(file_path=pilz_limits_path)
-        .joint_limits(file_path=joint_limits_path)
-        .trajectory_execution(file_path=moveit_controllers_path)
-        .robot_description_kinematics()
-        .moveit_cpp(
-            file_path=get_package_share_directory("drims2_motion_server")
-            + "/config/moveit_config.yaml"
-        )
-
-        .to_moveit_configs()
-    )
-    return moveit_config.to_dict()
-
 def generate_launch_description():
     pkg_dir = get_package_share_directory('drims2_motion_server')
 
@@ -77,7 +37,6 @@ def generate_launch_description():
         output='screen',
         parameters=[
             LaunchConfiguration('motion_server_config_path'),
-            get_moveit_configs()
         ])
     
     # Create the launch description and populate
