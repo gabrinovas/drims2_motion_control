@@ -13,13 +13,13 @@ from tf2_ros import TransformBroadcaster
 from pymoveit2 import MoveIt2, MoveIt2State
 from threading import Thread
 from rclpy.executors import MultiThreadedExecutor
+from moveit_msgs.msg import MoveItErrorCodes
 
 class MotionServer(Node):
 
     def __init__(self):
         super().__init__('motion_server_node')
 
-        # self.declare_parameter('motion_server_config_path', '')
         self.declare_parameter('move_group_name', 'manipulator')
         self.declare_parameter('joint_names', [''])
         self.declare_parameter('base_link_name', 'base_link')
@@ -32,8 +32,8 @@ class MotionServer(Node):
         self.declare_parameter('cartesian_avoid_collisions', True)
         self.declare_parameter("max_velocity", 0.5)
         self.declare_parameter("max_acceleration", 0.5)
+        self.declare_parameter("use_move_group_action", True)
 
-        # self.get_logger().info(self.get_parameter('motion_server_config_path').get_parameter_value().string_value)
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
         self.end_effector_name = self.get_parameter('end_effector_name').get_parameter_value().string_value
         self.base_link_name = self.get_parameter('base_link_name').get_parameter_value().string_value
@@ -44,11 +44,7 @@ class MotionServer(Node):
         self.internal_node = Node(
             'motion_server_moveit2_internal_node', use_global_arguments=False, )
         
-        # self.internal_executor = rclpy.executors.MultiThreadedExecutor(2)
-        # self.internal_executor.add_node(self.internal_node)
-        # self.internal_node.declare_parameter('synchronous', False)
-
-        callback_group = rclpy.callback_groups.ReentrantCallbackGroup()
+        self.callback_group = rclpy.callback_groups.ReentrantCallbackGroup()
         try:     
             self.moveit2 = MoveIt2(
                 node=self.internal_node,
@@ -56,14 +52,12 @@ class MotionServer(Node):
                 base_link_name=self.base_link_name,
                 end_effector_name=self.end_effector_name,
                 group_name=self.move_group_name,
-                callback_group=callback_group,
+                callback_group=self.callback_group,
+                use_move_group_action=self.get_parameter('use_move_group_action').get_parameter_value().bool_value
             )
             self.moveit2.planner_id = self.get_parameter('planner_id').get_parameter_value().string_value
             self.moveit2.max_velocity = self.get_parameter('max_velocity').get_parameter_value().double_value
             self.moveit2.max_acceleration = self.get_parameter('max_acceleration').get_parameter_value().double_value
-
-            # self.executor_thread = Thread(target=self.spin_internal_executor, daemon=True)
-            # self.executor_thread.start()
 
         except RuntimeError as exception:
             raise exception
@@ -92,8 +86,6 @@ class MotionServer(Node):
             'detach_object',
             self.detach_object_callback
         )
-        # self.executor_thread = Thread(target=self.internal_executor.spin, daemon=True, args=())
-        # self.executor_thread.start()
 
         self.tf_broadcaster = TransformBroadcaster(self)
 
@@ -106,6 +98,8 @@ class MotionServer(Node):
         
         cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
         cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
+        
+        self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
 
         self.moveit2.move_to_pose(
             pose=goal_pose,
@@ -113,42 +107,18 @@ class MotionServer(Node):
             cartesian_max_step=cartesian_max_step,
             cartesian_fraction_threshold=cartesian_fraction_threshold,
         )
-        self.moveit2.wait_until_executed()
-        # self.robot_arm.set_goal_state(pose_stamped_msg = goal_pose, 
-        #                               pose_link=self.target_frame)
-        # self.broadcast_pose_goal_tf(goal_pose)
-
-        # if cartesian_motion:
-        #     self.get_logger().info(f"Move to Pose with linear cartesian motion.")
-        #     plan_request_parameters = CartesianPlannerParams.get_plan_request_parameters(self,self.moveit_core)
-        #     plan_solution = self.robot_arm.plan(plan_request_parameters)
-        #     self.get_logger().info(f"Plan solution")
-        # else:
-        #     self.get_logger().info(f"Move to Pose with joint motion.")
-        #     plan_solution = self.robot_arm.plan()
-        #     self.get_logger().info(f"Plan solution")
-
-
-        # action_result = MoveToPose.Result()
-        # if plan_solution:
-        #     robot_trajectory = plan_solution.trajectory
-        #     self.get_logger().info(f"Trj pre executed")
-        #     execution_result = self.moveit_core.execute(self.move_group_name, robot_trajectory, blocking=True)
-        #     self.get_logger().info(f"Trj executed")
-
-        #     if execution_result:     
-        #         action_result.result.val = action_result.result.SUCCESS
-        #     else:
-        #         action_result.result.val = action_result.result.FAILURE
-
-        # else:
-        #     action_result.result = plan_solution.error_code
-        #     self.get_logger().error(f"Planning to {goal_pose} failed")
-        goal_handle.succeed()
+        partial_result = self.moveit2.wait_until_executed()
+        motion_result = self.moveit2.get_last_execution_error_code()
+        self.get_logger().info(f"Partial result: {partial_result}")
+        self.get_logger().info(f"Motion result: {motion_result}")
 
         action_result = MoveToPose.Result()
-        action_result.result.val = action_result.result.SUCCESS
+        if motion_result is None:
+            action_result.result.val = MoveToPose.Result.SUCCESS
+        else:
+            action_result.result.val = motion_result.val
 
+        goal_handle.succeed()
         return action_result
 
     def move_to_pose_cancel_callback(self, goal_handle):
@@ -163,13 +133,23 @@ class MotionServer(Node):
         self.get_logger().info(f"Moving to joint sfsafdas: {joints_goal}")
 
         self.moveit2.move_to_configuration(joints_goal)
-        self.moveit2.wait_until_executed()
-        
-        # # thread_node = Thread(target=self.internal_executor.spin, daemon=True)
-        # # thread_node.start()
-        # self.get_logger().info("Current State: " + str(self.moveit2.query_state()))
+        partial_result = self.moveit2.wait_until_executed()
+        motion_result = self.moveit2.get_last_execution_error_code()
+        self.get_logger().info(f"Partial result: {partial_result}")
+        self.get_logger().info(f"Motion result: {motion_result}")
+
+        action_result = MoveToJoint.Result()
+        if motion_result is None:
+            action_result.result.val = MoveToJoint.Result.SUCCESS
+        else:
+            action_result.result.val = motion_result.val
+
+        # thread_node = Thread(target=self.test, daemon=True)
+        # thread_node.start()
         # rate = self.create_rate(10)
+        # self.get_logger().info("Current State: " + str(self.moveit2.query_state()))
         # while self.moveit2.query_state() != MoveIt2State.EXECUTING:
+        #     self.get_logger().info(f"HEREE: {self.moveit2.query_state()}")
         #     rate.sleep()
 
         # # Get the future
@@ -180,7 +160,7 @@ class MotionServer(Node):
         # # Cancel the goal
         # if cancel_after_secs > 0.0:
         #     # Sleep for the specified time
-        #     sleep_time = self.internal_node.create_rate(cancel_after_secs)
+        #     sleep_time = self.create_rate(cancel_after_secs)
         #     sleep_time.sleep()
         #     # Cancel the goal
         #     self.get_logger().info("Cancelling goal")
@@ -189,14 +169,13 @@ class MotionServer(Node):
         # # Wait until the future is done
         # while not future.done():
         #     rate.sleep()
-
-        # Print the result
+        # # thread_node.join()
+        # # Print the result
         # self.get_logger().info("Result status: " + str(future.result().status))
         # self.get_logger().info("Result error code: " + str(future.result().result.error_code))
 
+        
         goal_handle.succeed()
-        action_result = MoveToJoint.Result()
-        action_result.result.val = action_result.result.SUCCESS
         return action_result
 
     def broadcast_pose_goal_tf(self, pose_goal):
