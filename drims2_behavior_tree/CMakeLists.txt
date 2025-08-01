@@ -60,6 +60,11 @@ add_library(detach_object SHARED
 )
 list(APPEND plugin_libs detach_object)
 
+add_library(check_dice_face SHARED
+    src/leaves/check_dice_face.cpp
+)
+list(APPEND plugin_libs check_dice_face)
+
 foreach(bt_plugin ${plugin_libs})
   # target_link_libraries(${bt_plugin} ${dependencies})
   ament_target_dependencies(${bt_plugin} ${dependencies})

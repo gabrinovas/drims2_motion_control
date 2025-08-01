@@ -22,15 +22,17 @@ int main(int argc, char ** argv)
   rclcpp::executors::MultiThreadedExecutor executor;
   executor.add_node(node);
 
-  std::vector<std::string> plugins;
+  std::vector<std::string> plugins, ros_plugins;
   std::string bt_xml_file;
   std::string bt_package;
 
   node->declare_parameter("plugins", plugins);
+  node->declare_parameter("ros_plugins", ros_plugins);
   node->declare_parameter("bt_package", bt_package);
   node->declare_parameter("bt_xml_file", bt_xml_file);
 
   node->get_parameter("plugins", plugins);
+  node->get_parameter("ros_plugins", ros_plugins);
   node->get_parameter("bt_package", bt_package);
   node->get_parameter("bt_xml_file", bt_xml_file);
 
@@ -45,7 +47,12 @@ int main(int argc, char ** argv)
 
   for (const auto & plugin : plugins) {
     RCLCPP_INFO(node->get_logger(), "Loading BT Node: [%s]", plugin.c_str());
-    RegisterRosNode(factory, loader.getOSName(plugin), params);
+    factory.registerFromPlugin(loader.getOSName(plugin));
+  }
+
+  for (const auto & ros_plugin : ros_plugins) {
+    RCLCPP_INFO(node->get_logger(), "Loading BT Node: [%s]", ros_plugin.c_str());
+    RegisterRosNode(factory, loader.getOSName(ros_plugin), params);
   }
 
   std::string pkgpath = ament_index_cpp::get_package_share_directory(bt_package);
