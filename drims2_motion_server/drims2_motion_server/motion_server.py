@@ -115,7 +115,7 @@ class MotionServer(Node):
 
         action_result = MoveToPose.Result()
         if motion_result is None:
-            action_result.result.val = MoveToPose.Result.SUCCESS
+            action_result.result.val =  MoveItErrorCodes.SUCCESS
         else:
             action_result.result.val = motion_result.val
 
@@ -141,7 +141,7 @@ class MotionServer(Node):
 
         action_result = MoveToJoint.Result()
         if motion_result is None:
-            action_result.result.val = MoveToJoint.Result.SUCCESS
+            action_result.result.val = MoveItErrorCodes.SUCCESS
         else:
             action_result.result.val = motion_result.val
 
