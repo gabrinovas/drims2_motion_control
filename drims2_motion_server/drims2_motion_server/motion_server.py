@@ -32,14 +32,13 @@ class MotionServer(Node):
         self.declare_parameter('cartesian_avoid_collisions', True)
         self.declare_parameter("max_velocity", 0.5)
         self.declare_parameter("max_acceleration", 0.5)
-        self.declare_parameter("use_move_group_action", True)
+        self.declare_parameter("use_move_group_action", False)
         self.declare_parameter("allowed_planning_time", 1.0)
 
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
         self.end_effector_name = self.get_parameter('end_effector_name').get_parameter_value().string_value
         self.base_link_name = self.get_parameter('base_link_name').get_parameter_value().string_value
         self.joint_names = self.get_parameter('joint_names').get_parameter_value().string_array_value
-        self.target_frame = self.get_parameter('base_link_name').get_parameter_value().string_value
 
 
         self.internal_node = Node(
