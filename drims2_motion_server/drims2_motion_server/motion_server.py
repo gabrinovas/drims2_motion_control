@@ -26,14 +26,14 @@ class MotionServer(Node):
         self.declare_parameter('end_effector_name', 'tool0')
         self.declare_parameter('planner_id', 'BiTRRT')
 
-        self.declare_parameter('cartesian_max_step', 0.0025)
-        self.declare_parameter('cartesian_fraction_threshold', 0.0)
-        self.declare_parameter('cartesian_jump_threshold', 0.0)
+        self.declare_parameter('cartesian_max_step', 0.005)
+        self.declare_parameter('cartesian_fraction_threshold', 0.001)
+        self.declare_parameter('cartesian_jump_threshold', 0.001)
         self.declare_parameter('cartesian_avoid_collisions', True)
         self.declare_parameter("max_velocity", 0.5)
         self.declare_parameter("max_acceleration", 0.5)
         self.declare_parameter("use_move_group_action", False)
-        self.declare_parameter("allowed_planning_time", 1.0)
+        self.declare_parameter("allowed_planning_time", 2.0)
 
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
         self.end_effector_name = self.get_parameter('end_effector_name').get_parameter_value().string_value
@@ -134,7 +134,7 @@ class MotionServer(Node):
     def move_to_joint_callback(self, goal_handle: ServerGoalHandle) -> MoveToJoint.Result:
         
         joints_goal = goal_handle.request.joint_target
-        self.get_logger().info(f"Moving to joint sfsafdas: {joints_goal}")
+        self.get_logger().info(f"Moving to joint: {joints_goal}")
 
         self.moveit2.move_to_configuration(joints_goal)
         partial_result = self.moveit2.wait_until_executed()
