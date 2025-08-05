@@ -114,11 +114,14 @@ class MotionServer(Node):
         self.get_logger().info(f"Motion result: {motion_result}")
 
         action_result = MoveToPose.Result()
-        if motion_result is None:
-            action_result.result.val =  MoveItErrorCodes.SUCCESS
+        if partial_result:
+            if motion_result is None:
+                action_result.result.val = MoveItErrorCodes.FAILURE
+            else:
+                action_result.result.val = motion_result.val
         else:
-            action_result.result.val = motion_result.val
-
+            action_result.result.val = MoveItErrorCodes.FAILURE
+        
         goal_handle.succeed()
         return action_result
 
@@ -140,10 +143,13 @@ class MotionServer(Node):
         self.get_logger().info(f"Motion result: {motion_result}")
 
         action_result = MoveToJoint.Result()
-        if motion_result is None:
-            action_result.result.val = MoveItErrorCodes.SUCCESS
+        if partial_result:
+            if motion_result is None:
+                action_result.result.val = MoveItErrorCodes.FAILURE
+            else:
+                action_result.result.val = motion_result.val
         else:
-            action_result.result.val = motion_result.val
+            action_result.result.val = MoveItErrorCodes.FAILURE
 
         # thread_node = Thread(target=self.test, daemon=True)
         # thread_node.start()
