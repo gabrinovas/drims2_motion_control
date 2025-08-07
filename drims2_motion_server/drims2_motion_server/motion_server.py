@@ -14,6 +14,7 @@ from pymoveit2 import MoveIt2, MoveIt2State
 from threading import Thread
 from rclpy.executors import MultiThreadedExecutor
 from moveit_msgs.msg import MoveItErrorCodes
+from drims2_move_to import MoveTo
 
 class MotionServer(Node):
 

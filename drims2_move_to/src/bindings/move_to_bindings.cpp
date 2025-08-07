@@ -2,13 +2,18 @@
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
 
-#include "MoveTo.hpp"
+#include "drims2_move_to/drims2_move_to.hpp"
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(drims2_bindings, m) {
+PYBIND11_MODULE(drims2_move_to_py, m) {
     py::class_<MoveTo>(m, "MoveTo")
-        .def(py::init<const std::string&>(), py::arg("group_name"))
+        .def(py::init([](const std::string& group_name) {
+            int argc = 0;
+            char** argv = nullptr;
+            rclcpp::init(argc, argv);
+            return std::make_unique<MoveTo>(group_name);
+        }), py::arg("group_name"))
         .def("move_to_joint", &MoveTo::move_to_joint,
              py::arg("q"),
              py::arg("joints_names"),
