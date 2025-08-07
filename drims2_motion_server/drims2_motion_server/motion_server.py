@@ -34,6 +34,8 @@ class MotionServer(Node):
         self.declare_parameter("max_acceleration", 0.5)
         self.declare_parameter("use_move_group_action", False)
         self.declare_parameter("allowed_planning_time", 2.0)
+        self.declare_parameter("tolerance_position", 0.001)
+        self.declare_parameter("tolerance_orientation", 0.001)
 
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
         self.end_effector_name = self.get_parameter('end_effector_name').get_parameter_value().string_value
@@ -59,7 +61,7 @@ class MotionServer(Node):
             self.moveit2.max_velocity = self.get_parameter('max_velocity').get_parameter_value().double_value
             self.moveit2.max_acceleration = self.get_parameter('max_acceleration').get_parameter_value().double_value
             self.moveit2.allowed_planning_time = self.get_parameter('allowed_planning_time').get_parameter_value().double_value
-
+        
         except RuntimeError as exception:
             raise exception
 
@@ -107,6 +109,8 @@ class MotionServer(Node):
             cartesian=cartesian_motion,
             cartesian_max_step=cartesian_max_step,
             cartesian_fraction_threshold=cartesian_fraction_threshold,
+            tolerance_position=self.get_parameter('tolerance_position').get_parameter_value().double_value,
+            tolerance_orientation=self.get_parameter('tolerance_orientation').get_parameter_value().double_value
         )
         partial_result = self.moveit2.wait_until_executed()
         motion_result = self.moveit2.get_last_execution_error_code()
