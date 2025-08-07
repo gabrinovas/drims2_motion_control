@@ -16,6 +16,7 @@ from rclpy.executors import MultiThreadedExecutor
 from moveit_msgs.msg import MoveItErrorCodes
 from drims2_move_to.drims2_move_to_py import MoveTo
 
+
 class MotionServer(Node):
 
     def __init__(self):
@@ -50,10 +51,6 @@ class MotionServer(Node):
             self.moveit2 = MoveTo(
                 group_name=self.move_group_name,
             )
-            self.moveit2.planner_id = self.get_parameter('planner_id').get_parameter_value().string_value
-            self.moveit2.max_velocity = self.get_parameter('max_velocity').get_parameter_value().double_value
-            self.moveit2.max_acceleration = self.get_parameter('max_acceleration').get_parameter_value().double_value
-            self.moveit2.allowed_planning_time = self.get_parameter('allowed_planning_time').get_parameter_value().double_value
 
         except RuntimeError as exception:
             raise exception
@@ -97,9 +94,24 @@ class MotionServer(Node):
         
         self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
 
+        pose_dict = {
+            "frame_id": goal_pose.header.frame_id,
+            "position": {
+                "x": goal_pose.pose.position.x,
+                "y": goal_pose.pose.position.y,
+                "z": goal_pose.pose.position.z,
+            },
+            "orientation": {
+                "x": goal_pose.pose.orientation.x,
+                "y": goal_pose.pose.orientation.y,
+                "z": goal_pose.pose.orientation.z,
+                "w": goal_pose.pose.orientation.w,
+            }
+        }
+
         self.moveit2.move_to_pose(
-            pose=goal_pose,
-            joint_names=self.joint_names,
+            pose=pose_dict,
+            joints_names=self.joint_names,
             cartesian=cartesian_motion,
             cartesian_max_step=cartesian_max_step,
             cartesian_fraction_threshold=cartesian_fraction_threshold,
