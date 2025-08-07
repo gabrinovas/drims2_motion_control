@@ -14,7 +14,7 @@ from pymoveit2 import MoveIt2, MoveIt2State
 from threading import Thread
 from rclpy.executors import MultiThreadedExecutor
 from moveit_msgs.msg import MoveItErrorCodes
-from drims2_move_to import MoveTo
+from drims2_move_to.drims2_move_to_py import MoveTo
 
 class MotionServer(Node):
 
@@ -47,14 +47,8 @@ class MotionServer(Node):
         
         self.callback_group = rclpy.callback_groups.ReentrantCallbackGroup()
         try:     
-            self.moveit2 = MoveIt2(
-                node=self.internal_node,
-                joint_names=self.joint_names,
-                base_link_name=self.base_link_name,
-                end_effector_name=self.end_effector_name,
+            self.moveit2 = MoveTo(
                 group_name=self.move_group_name,
-                callback_group=self.callback_group,
-                use_move_group_action=self.get_parameter('use_move_group_action').get_parameter_value().bool_value
             )
             self.moveit2.planner_id = self.get_parameter('planner_id').get_parameter_value().string_value
             self.moveit2.max_velocity = self.get_parameter('max_velocity').get_parameter_value().double_value
@@ -105,6 +99,7 @@ class MotionServer(Node):
 
         self.moveit2.move_to_pose(
             pose=goal_pose,
+            joint_names=self.joint_names,
             cartesian=cartesian_motion,
             cartesian_max_step=cartesian_max_step,
             cartesian_fraction_threshold=cartesian_fraction_threshold,
@@ -134,7 +129,7 @@ class MotionServer(Node):
         joints_goal = goal_handle.request.joint_target
         self.get_logger().info(f"Moving to joint sfsafdas: {joints_goal}")
 
-        self.moveit2.move_to_configuration(joints_goal)
+        self.moveit2.move_to_joint(joints_goal, self.joint_names)
         partial_result = self.moveit2.wait_until_executed()
         motion_result = self.moveit2.get_last_execution_error_code()
         self.get_logger().info(f"Partial result: {partial_result}")
