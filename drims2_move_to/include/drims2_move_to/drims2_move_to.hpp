@@ -149,7 +149,7 @@ public:
         RCLCPP_INFO(node_->get_logger(), "Planning Cartesian trajectory...");
 
         std::vector<geometry_msgs::msg::Pose> waypoints;
-        waypoints.push_back(pose);
+        waypoints.push_back(pose.pose);
 
         moveit_msgs::msg::RobotTrajectory trajectory_msg;
 
