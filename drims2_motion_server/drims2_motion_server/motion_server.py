@@ -269,44 +269,38 @@ class MotionServer(Node):
         self.tf_broadcaster.sendTransform(t)
 
     def attach_object_callback(self, request, response):
-        self.get_logger().info(f"Attaching object1 '{request.object_id}' to frame '{request.target_frame_id}'")
+        self.get_logger().info(f"Attaching object '{request.object_id}' to frame '{request.target_frame_id}'")
         self.moveit2.attach_collision_object(id=request.object_id,
                                              link_name=request.target_frame_id,
                                              touch_links=[request.target_frame_id])
-        self.get_logger().info(f"Attaching object2 '{request.object_id}' to frame '{request.target_frame_id}'")
-
-        
-        poll_rate = self.create_rate(5)  # 5 Hz
-        self.get_logger().info(f"Attaching object3 '{request.object_id}' to frame '{request.target_frame_id}'")
-
-        timeout_sec = 2.0
-        start_time = self.get_clock().now()
         attached = False
-        self.get_logger().info(f"Attaching object4 '{request.object_id}' to frame '{request.target_frame_id}'")
+        if self.moveit2.update_planning_scene():
+            for attached_obj in self.moveit2.planning_scene.robot_state.attached_collision_objects:
+                if attached_obj.object.id == request.object_id:
+                    attached = True
+        # internal_rate = self.create_rate(5)  # 5 Hz
 
-        while (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout_sec:
-            self.get_logger().info(f"Attaching object5 '{request.object_id}' to frame '{request.target_frame_id}'")
-            if self.moveit2.update_planning_scene():
-                self.get_logger().info("Planning scene updated.")
-                for attached_obj in self.moveit2.planning_scene.robot_state.attached_collision_objects:
-                    self.get_logger().info(f"Attached object6: {attached_obj.object.id}")
-                    if attached_obj.object.id == request.object_id:
-                        attached = True
-                        break
-            self._node.get_logger().info("After update_planning_scene")
-            if attached:
-                break
-            self.get_logger().info(f"Waiting for object '{request.object_id}' to be attached...")
-            poll_rate.sleep()
-            self.get_logger().info(f"After sleep")
+        # timeout_sec = 2.0
+        # start_time = self.get_clock().now()
+        # attached = False
+
+        # while (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout_sec:
+        #     if self.moveit2.update_planning_scene():
+        #         for attached_obj in self.moveit2.planning_scene.robot_state.attached_collision_objects:
+        #             if attached_obj.object.id == request.object_id:
+        #                 attached = True
+        #                 break
+        #     if attached:
+        #         break
+        #     internal_rate.sleep()
 
         if attached:
             self.get_logger().info(f"Object '{request.object_id}' successfully attached.")
+            response.success = True
         else:
             self.get_logger().warn(f"Object '{request.object_id}' NOT found in attached objects.")
-
-
-        response.success = True        
+            response.success = False
+                
         return response
 
 
@@ -314,30 +308,35 @@ class MotionServer(Node):
         self.get_logger().info(f"Detaching object '{request.object_id}'")
         self.moveit2.detach_collision_object(request.object_id)
 
-        timeout_sec = 2.0
-        poll_rate = self.create_rate(5)  # 5 Hz
-        start_time = self.get_clock().now()
+        # timeout_sec = 2.0
+        # poll_rate = self.create_rate(5)  # 5 Hz
+        # start_time = self.get_clock().now()
         detached = False
+        if self.moveit2.update_planning_scene():
+            still_attached = any(
+                attached_obj.object.id == request.object_id
+                for attached_obj in self.moveit2.planning_scene.robot_state.attached_collision_objects
+            )
+            if not still_attached:
+                detached = True
 
-        while (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout_sec:
-            if self.moveit2.update_planning_scene():
-                still_attached = any(
-                    attached_obj.object.id == request.object_id
-                    for attached_obj in self.moveit2.planning_scene.robot_state.attached_collision_objects
-                )
-                if not still_attached:
-                    detached = True
-                    break
-            poll_rate.sleep()
+        # while (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout_sec:
+        #     if self.moveit2.update_planning_scene():
+        #         still_attached = any(
+        #             attached_obj.object.id == request.object_id
+        #             for attached_obj in self.moveit2.planning_scene.robot_state.attached_collision_objects
+        #         )
+        #         if not still_attached:
+        #             detached = True
+        #             break
+        #     poll_rate.sleep()
 
         if detached:
             self.get_logger().info(f"Object '{request.object_id}' successfully detached.")
+            response.success = True
         else:
             self.get_logger().warn(f"Object '{request.object_id}' still appears attached!")
-
-
-
-        response.success = True
+            response.success = False
         return response
 
 
