@@ -25,8 +25,8 @@ public:
   explicit MoveTo(const std::string& group_name): group_name_(group_name)
   {
     node_ = rclcpp::Node::make_shared("drims2_move_to");
-    executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
 
+    executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
     executor_->add_node(node_);
     executor_thread_ = std::thread([this]() {
         executor_->spin();
@@ -35,9 +35,10 @@ public:
     move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_, group_name_);
   }
 
-  moveit::core::MoveItErrorCode move_to_joint(const Eigen::VectorXd& q, const std::vector<std::string>& joints_names)
+  bool move_to_joint(const Eigen::VectorXd& q, const std::vector<std::string>& joints_names)
   {
     RCLCPP_INFO(node_->get_logger(),"Starting state monitor");
+
     if (!move_group_->startStateMonitor())
       {
         RCLCPP_ERROR(node_->get_logger(),"Unable to read current state");
@@ -86,30 +87,32 @@ public:
 
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     robot_trajectory::RobotTrajectory trajectory(move_group_->getRobotModel(), group_name_);
-    moveit::core::MoveItErrorCode res = move_group_->plan(plan);
-    if(res != moveit::core::MoveItErrorCode::SUCCESS)
+
+    moveit::core::MoveItErrorCode res_code = move_group_->plan(plan);
+    if(res_code != moveit::core::MoveItErrorCode::SUCCESS)
       {
         RCLCPP_ERROR(node_->get_logger(),"Planning to location failed!");
-        return res;
+        return false;
       }
 
-    res = move_group_->execute(plan);
-    if(res != moveit::core::MoveItErrorCode::SUCCESS)
+    res_code = move_group_->execute(plan);
+    if(res_code != moveit::core::MoveItErrorCode::SUCCESS)
       {
         RCLCPP_ERROR(node_->get_logger(),"Execution of trajectory to location failed!");
-        return res;
+        return false;
       }
 
-    return res;
+    return true;
   }
 
-  moveit::core::MoveItErrorCode move_to_pose(const geometry_msgs::msg::PoseStamped& pose,
-                                             const std::vector<std::string>& joints_names,
-                                             const bool cartesian,
-                                             const double& cartesian_max_step,
-                                             const double& cartesian_fraction_threshold)
+  bool move_to_pose(const geometry_msgs::msg::PoseStamped& pose,
+                    const std::vector<std::string>& joints_names,
+                    const bool cartesian,
+                    const double& cartesian_max_step,
+                    const double& cartesian_fraction_threshold)
   {
     RCLCPP_INFO(node_->get_logger(),"Starting state monitor");
+
     if (!move_group_->startStateMonitor())
       {
         RCLCPP_ERROR(node_->get_logger(),"Unable to read current state");
@@ -139,14 +142,14 @@ public:
 
     RCLCPP_INFO_STREAM(node_->get_logger(),txt_current_state);
 
-    move_group_->setPoseTarget(pose);
-
-    moveit::core::MoveItErrorCode res;
+    moveit::core::MoveItErrorCode res_code;
     moveit::planning_interface::MoveGroupInterface::Plan plan;
 
     if(cartesian)
       {
         RCLCPP_INFO(node_->get_logger(), "Planning Cartesian trajectory...");
+
+        move_group_->setPoseTarget(pose);
 
         std::vector<geometry_msgs::msg::Pose> waypoints;
         waypoints.push_back(pose.pose);
@@ -159,29 +162,64 @@ public:
         if(fraction < 0.99)
           {
             RCLCPP_WARN(node_->get_logger(), "Cartesian path planning only achieved %.2f%% of the path", fraction * 100.0);
-            return moveit::core::MoveItErrorCode::FAILURE;
+            return false;
           }
 
         plan.trajectory_ = trajectory_msg;
-
-        res = move_group_->execute(plan);
+        res_code = move_group_->execute(plan);
       }
     else
       {
-        RCLCPP_INFO(node_->get_logger(), "Planning motion to pose target...");
+        RCLCPP_INFO(node_->get_logger(), "Solving inverse kinematics for pose...");
 
-        res = move_group_->plan(plan);
-        if (res == moveit::core::MoveItErrorCode::SUCCESS)
+        moveit::core::RobotStatePtr state = move_group_->getCurrentState();
+        const moveit::core::JointModelGroup* joint_model_group =
+            state->getJointModelGroup(move_group_->getName());
+
+        if (joint_model_group->getSolverInstance()) {
+            RCLCPP_INFO(node_->get_logger(), "IK solver is correctly set!");
+          } else {
+            RCLCPP_ERROR(node_->get_logger(), "IK solver is MISSING for group: %s", group_name_.c_str());
+          }
+
+        bool found_ik = state->setFromIK(joint_model_group, pose.pose);
+
+        if (!found_ik)
           {
-            res = move_group_->execute(plan);
+            RCLCPP_ERROR(node_->get_logger(), "Inverse kinematics failed for pose target");
+            return false;
+          }
+
+        std::vector<double> joint_values;
+        state->copyJointGroupPositions(joint_model_group, joint_values);
+
+        move_group_->setJointValueTarget(joint_values);
+
+        RCLCPP_INFO(node_->get_logger(), "Planning joint-space motion to IK solution...");
+
+        res_code = move_group_->plan(plan);
+        if (res_code == moveit::core::MoveItErrorCode::SUCCESS)
+          {
+            res_code = move_group_->execute(plan);
           }
       }
+    //    else
+    //      {
+    //        RCLCPP_INFO(node_->get_logger(), "Planning motion to pose target...");
 
-    if (res != moveit::core::MoveItErrorCode::SUCCESS)
+    //        res_code = move_group_->plan(plan);
+    //        if (res_code == moveit::core::MoveItErrorCode::SUCCESS)
+    //          {
+    //            res_code = move_group_->execute(plan);
+    //          }
+    //      }
+
+    if (res_code != moveit::core::MoveItErrorCode::SUCCESS)
       {
         RCLCPP_ERROR(node_->get_logger(), "Motion to pose failed!");
+        return false;
       }
 
-    return res;
+    return true;
   }
 };

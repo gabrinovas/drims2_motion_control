@@ -51,6 +51,20 @@ class MotionServer(Node):
             self.moveit2 = MoveTo(
                 group_name=self.move_group_name,
             )
+            self.moveit2_backup = MoveIt2(
+                node=self.internal_node,
+                joint_names=self.joint_names,
+                base_link_name=self.base_link_name,
+                end_effector_name=self.end_effector_name,
+                group_name=self.move_group_name,
+                callback_group=self.callback_group,
+                use_move_group_action=self.get_parameter('use_move_group_action').get_parameter_value().bool_value
+            )
+            self.moveit2_backup.planner_id = self.get_parameter('planner_id').get_parameter_value().string_value
+            self.moveit2_backup.max_velocity = self.get_parameter('max_velocity').get_parameter_value().double_value
+            self.moveit2_backup.max_acceleration = self.get_parameter('max_acceleration').get_parameter_value().double_value
+            self.moveit2_backup.allowed_planning_time = self.get_parameter('allowed_planning_time').get_parameter_value().double_value
+
 
         except RuntimeError as exception:
             raise exception
@@ -120,7 +134,7 @@ class MotionServer(Node):
         self.get_logger().info(f"Motion result: {motion_result}")
 
         action_result = MoveToPose.Result()
-        action_result.result.val = motion_result.val
+        action_result.result.val = motion_result
 
         goal_handle.succeed()
         return action_result
@@ -140,7 +154,7 @@ class MotionServer(Node):
         self.get_logger().info(f"Motion result: {motion_result}")
 
         action_result = MoveToJoint.Result()
-        action_result.result.val = motion_result.val
+        action_result.result.val = motion_result
 
         # thread_node = Thread(target=self.test, daemon=True)
         # thread_node.start()
@@ -193,7 +207,7 @@ class MotionServer(Node):
 
     def attach_object_callback(self, request, response):
         self.get_logger().info(f"Attaching object '{request.object_id}' to frame '{request.target_frame_id}'")
-        self.moveit2.attach_collision_object(id=request.object_id,
+        self.moveit2_backup.attach_collision_object(id=request.object_id,
                                              link_name=request.target_frame_id,
                                              touch_links=[request.target_frame_id])
         response.success = True        
@@ -202,7 +216,7 @@ class MotionServer(Node):
 
     def detach_object_callback(self, request, response):
         self.get_logger().info(f"Detaching object '{request.object_id}'")
-        self.moveit2.detach_collision_object(request.object_id)
+        self.moveit2_backup.detach_collision_object(request.object_id)
         response.success = True
         return response
 
