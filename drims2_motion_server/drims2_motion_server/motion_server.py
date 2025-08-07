@@ -14,6 +14,7 @@ from pymoveit2 import MoveIt2, MoveIt2State
 from threading import Thread
 from rclpy.executors import MultiThreadedExecutor
 from moveit_msgs.msg import MoveItErrorCodes
+from moveit_msgs.srv import GetPositionIK
 
 class MotionServer(Node):
 
@@ -89,6 +90,14 @@ class MotionServer(Node):
             'detach_object',
             self.detach_object_callback
         )
+        self.compute_ik_client = self.create_client(
+            GetPositionIK,
+            'compute_ik',
+            callback_group=self.callback_group
+        )
+        while not self.compute_ik_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn("Waiting for 'compute_ik' service...")
+
 
         self.tf_broadcaster = TransformBroadcaster(self)
 
@@ -104,30 +113,116 @@ class MotionServer(Node):
         
         self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
 
-        self.moveit2.move_to_pose(
-            pose=goal_pose,
-            cartesian=cartesian_motion,
-            cartesian_max_step=cartesian_max_step,
-            cartesian_fraction_threshold=cartesian_fraction_threshold,
-            tolerance_position=self.get_parameter('tolerance_position').get_parameter_value().double_value,
-            tolerance_orientation=self.get_parameter('tolerance_orientation').get_parameter_value().double_value
-        )
-        partial_result = self.moveit2.wait_until_executed()
-        motion_result = self.moveit2.get_last_execution_error_code()
-        self.get_logger().info(f"Partial result: {partial_result}")
-        self.get_logger().info(f"Motion result: {motion_result}")
+        if cartesian_motion:
+            cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
+            cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
 
-        action_result = MoveToPose.Result()
-        if partial_result:
-            if motion_result is None:
-                action_result.result.val = MoveItErrorCodes.FAILURE
+            self.moveit2.move_to_pose(
+                pose=goal_pose,
+                cartesian=True,
+                cartesian_max_step=cartesian_max_step,
+                cartesian_fraction_threshold=cartesian_fraction_threshold,
+                tolerance_position=self.get_parameter('tolerance_position').get_parameter_value().double_value,
+                tolerance_orientation=self.get_parameter('tolerance_orientation').get_parameter_value().double_value
+            )
+            partial_result = self.moveit2.wait_until_executed()
+            motion_result = self.moveit2.get_last_execution_error_code()
+            self.get_logger().info(f"Partial result: {partial_result}")
+            self.get_logger().info(f"Motion result: {motion_result}")
+
+            action_result = MoveToPose.Result()
+            if partial_result:
+                if motion_result is None:
+                    action_result.result.val = MoveItErrorCodes.FAILURE
+                else:
+                    action_result.result.val = motion_result.val
             else:
-                action_result.result.val = motion_result.val
+                action_result.result.val = MoveItErrorCodes.FAILURE
         else:
-            action_result.result.val = MoveItErrorCodes.FAILURE
+            ik_req = GetPositionIK.Request()
+            ik_req.ik_request.group_name = self.move_group_name
+            ik_req.ik_request.pose_stamped = goal_pose
+            ik_req.ik_request.avoid_collisions = True
+            self.moveit2.wait_new_joint_state()
+            if self.moveit2.joint_state is not None:
+                ik_req.ik_request.robot_state.joint_state = self.moveit2.joint_state
+            else:
+                self.get_logger().error("Joint state not yet available, cannot compute IK.")
+                goal_handle.abort()
+                result = MoveToPose.Result()
+                result.result.val = MoveItErrorCodes.INVALID_ROBOT_STATE
+                return result
+
+            future = self.compute_ik_client.call_async(ik_req)
+            rate = self.create_rate(10)
+            timpout = 3.0
+            start_time = self.get_clock().now()
+            while not future.done() and (self.get_clock().now() - start_time).nanoseconds / 1e9 < timpout:
+                self.get_logger().info("Waiting for IK solution...")
+                rate.sleep()
+
+            if not future.done() or future.result().error_code.val != MoveItErrorCodes.SUCCESS:
+                self.get_logger().warn("IK solution not found or call failed.")
+                goal_handle.abort()
+                result = MoveToPose.Result()
+                result.result.val = MoveItErrorCodes.NO_IK_SOLUTION
+                return result
+
+            joint_state = future.result().solution.joint_state
+            self.get_logger().info(f"IK joint solution: {joint_state.position}")
+            joint_name_to_position = dict(zip(joint_state.name, joint_state.position))
+            filtered_positions = [joint_name_to_position[name] for name in self.joint_names if name in joint_name_to_position]
+
+            self.moveit2.move_to_configuration(filtered_positions, self.joint_names)
+            partial_result = self.moveit2.wait_until_executed()
+            motion_result = self.moveit2.get_last_execution_error_code()
+            self.get_logger().info(f"Partial result: {partial_result}")
+            self.get_logger().info(f"Motion result: {motion_result}")
+
+            action_result = MoveToPose.Result()
+            if partial_result:
+                if motion_result is None:
+                    action_result.result.val = MoveItErrorCodes.FAILURE
+                else:
+                    action_result.result.val = motion_result.val
+            else:
+                action_result.result.val = MoveItErrorCodes.FAILURE
+
         
         goal_handle.succeed()
         return action_result
+        # goal_pose: PoseStamped = goal_handle.request.pose_target
+        # cartesian_motion = goal_handle.request.cartesian_motion
+        
+        # cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
+        # cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
+        
+        # self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
+
+        # self.moveit2.move_to_pose(
+        #     pose=goal_pose,
+        #     cartesian=cartesian_motion,
+        #     cartesian_max_step=cartesian_max_step,
+        #     cartesian_fraction_threshold=cartesian_fraction_threshold,
+        #     tolerance_position=self.get_parameter('tolerance_position').get_parameter_value().double_value,
+        #     tolerance_orientation=self.get_parameter('tolerance_orientation').get_parameter_value().double_value
+        # )
+        # partial_result = self.moveit2.wait_until_executed()
+        # motion_result = self.moveit2.get_last_execution_error_code()
+        # self.get_logger().info(f"Partial result: {partial_result}")
+        # self.get_logger().info(f"Motion result: {motion_result}")
+
+        # action_result = MoveToPose.Result()
+        # if partial_result:
+        #     if motion_result is None:
+        #         action_result.result.val = MoveItErrorCodes.FAILURE
+        #     else:
+        #         action_result.result.val = motion_result.val
+        # else:
+        #     action_result.result.val = MoveItErrorCodes.FAILURE
+        
+        # goal_handle.succeed()
+        # return action_result
 
     def move_to_pose_cancel_callback(self, goal_handle):
         pass
@@ -154,37 +249,6 @@ class MotionServer(Node):
                 action_result.result.val = motion_result.val
         else:
             action_result.result.val = MoveItErrorCodes.FAILURE
-
-        # thread_node = Thread(target=self.test, daemon=True)
-        # thread_node.start()
-        # rate = self.create_rate(10)
-        # self.get_logger().info("Current State: " + str(self.moveit2.query_state()))
-        # while self.moveit2.query_state() != MoveIt2State.EXECUTING:
-        #     self.get_logger().info(f"HEREE: {self.moveit2.query_state()}")
-        #     rate.sleep()
-
-        # # Get the future
-        # self.get_logger().info("Current State: " + str(self.moveit2.query_state()))
-        # future = self.moveit2.get_execution_future()
-        # cancel_after_secs = 10.0
-
-        # # Cancel the goal
-        # if cancel_after_secs > 0.0:
-        #     # Sleep for the specified time
-        #     sleep_time = self.create_rate(cancel_after_secs)
-        #     sleep_time.sleep()
-        #     # Cancel the goal
-        #     self.get_logger().info("Cancelling goal")
-        #     self.moveit2.cancel_execution()
-
-        # # Wait until the future is done
-        # while not future.done():
-        #     rate.sleep()
-        # # thread_node.join()
-        # # Print the result
-        # self.get_logger().info("Result status: " + str(future.result().status))
-        # self.get_logger().info("Result error code: " + str(future.result().result.error_code))
-
         
         goal_handle.succeed()
         return action_result
@@ -205,10 +269,43 @@ class MotionServer(Node):
         self.tf_broadcaster.sendTransform(t)
 
     def attach_object_callback(self, request, response):
-        self.get_logger().info(f"Attaching object '{request.object_id}' to frame '{request.target_frame_id}'")
+        self.get_logger().info(f"Attaching object1 '{request.object_id}' to frame '{request.target_frame_id}'")
         self.moveit2.attach_collision_object(id=request.object_id,
                                              link_name=request.target_frame_id,
                                              touch_links=[request.target_frame_id])
+        self.get_logger().info(f"Attaching object2 '{request.object_id}' to frame '{request.target_frame_id}'")
+
+        
+        poll_rate = self.create_rate(5)  # 5 Hz
+        self.get_logger().info(f"Attaching object3 '{request.object_id}' to frame '{request.target_frame_id}'")
+
+        timeout_sec = 2.0
+        start_time = self.get_clock().now()
+        attached = False
+        self.get_logger().info(f"Attaching object4 '{request.object_id}' to frame '{request.target_frame_id}'")
+
+        while (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout_sec:
+            self.get_logger().info(f"Attaching object5 '{request.object_id}' to frame '{request.target_frame_id}'")
+            if self.moveit2.update_planning_scene():
+                self.get_logger().info("Planning scene updated.")
+                for attached_obj in self.moveit2.planning_scene.robot_state.attached_collision_objects:
+                    self.get_logger().info(f"Attached object6: {attached_obj.object.id}")
+                    if attached_obj.object.id == request.object_id:
+                        attached = True
+                        break
+            self._node.get_logger().info("After update_planning_scene")
+            if attached:
+                break
+            self.get_logger().info(f"Waiting for object '{request.object_id}' to be attached...")
+            poll_rate.sleep()
+            self.get_logger().info(f"After sleep")
+
+        if attached:
+            self.get_logger().info(f"Object '{request.object_id}' successfully attached.")
+        else:
+            self.get_logger().warn(f"Object '{request.object_id}' NOT found in attached objects.")
+
+
         response.success = True        
         return response
 
@@ -216,6 +313,30 @@ class MotionServer(Node):
     def detach_object_callback(self, request, response):
         self.get_logger().info(f"Detaching object '{request.object_id}'")
         self.moveit2.detach_collision_object(request.object_id)
+
+        timeout_sec = 2.0
+        poll_rate = self.create_rate(5)  # 5 Hz
+        start_time = self.get_clock().now()
+        detached = False
+
+        while (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout_sec:
+            if self.moveit2.update_planning_scene():
+                still_attached = any(
+                    attached_obj.object.id == request.object_id
+                    for attached_obj in self.moveit2.planning_scene.robot_state.attached_collision_objects
+                )
+                if not still_attached:
+                    detached = True
+                    break
+            poll_rate.sleep()
+
+        if detached:
+            self.get_logger().info(f"Object '{request.object_id}' successfully detached.")
+        else:
+            self.get_logger().warn(f"Object '{request.object_id}' still appears attached!")
+
+
+
         response.success = True
         return response
 
