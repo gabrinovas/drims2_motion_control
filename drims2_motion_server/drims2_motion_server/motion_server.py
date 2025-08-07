@@ -109,23 +109,18 @@ class MotionServer(Node):
             }
         }
 
-        self.moveit2.move_to_pose(
+        
+        motion_result = self.moveit2.move_to_pose(
             pose=pose_dict,
             joints_names=self.joint_names,
             cartesian=cartesian_motion,
             cartesian_max_step=cartesian_max_step,
             cartesian_fraction_threshold=cartesian_fraction_threshold,
         )
-        partial_result = self.moveit2.wait_until_executed()
-        motion_result = self.moveit2.get_last_execution_error_code()
-        self.get_logger().info(f"Partial result: {partial_result}")
         self.get_logger().info(f"Motion result: {motion_result}")
 
         action_result = MoveToPose.Result()
-        if motion_result is None:
-            action_result.result.val =  MoveItErrorCodes.SUCCESS
-        else:
-            action_result.result.val = motion_result.val
+        action_result.result.val = motion_result.val
 
         goal_handle.succeed()
         return action_result
@@ -141,17 +136,11 @@ class MotionServer(Node):
         joints_goal = goal_handle.request.joint_target
         self.get_logger().info(f"Moving to joint sfsafdas: {joints_goal}")
 
-        self.moveit2.move_to_joint(joints_goal, self.joint_names)
-        partial_result = self.moveit2.wait_until_executed()
-        motion_result = self.moveit2.get_last_execution_error_code()
-        self.get_logger().info(f"Partial result: {partial_result}")
+        motion_result = self.moveit2.move_to_joint(joints_goal, self.joint_names)
         self.get_logger().info(f"Motion result: {motion_result}")
 
         action_result = MoveToJoint.Result()
-        if motion_result is None:
-            action_result.result.val = MoveItErrorCodes.SUCCESS
-        else:
-            action_result.result.val = motion_result.val
+        action_result.result.val = motion_result.val
 
         # thread_node = Thread(target=self.test, daemon=True)
         # thread_node.start()
