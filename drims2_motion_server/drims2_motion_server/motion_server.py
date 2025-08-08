@@ -108,22 +108,21 @@ class MotionServer(Node):
         goal_pose: PoseStamped = goal_handle.request.pose_target
         cartesian_motion = goal_handle.request.cartesian_motion
         
-        cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
-        cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
-        
         self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
 
         if cartesian_motion:
             cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
             cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
+            tolerance_position = self.get_parameter('tolerance_position').get_parameter_value().double_value
+            tolerance_orientation = self.get_parameter('tolerance_orientation').get_parameter_value().double_value
 
             self.moveit2.move_to_pose(
                 pose=goal_pose,
                 cartesian=True,
                 cartesian_max_step=cartesian_max_step,
                 cartesian_fraction_threshold=cartesian_fraction_threshold,
-                tolerance_position=self.get_parameter('tolerance_position').get_parameter_value().double_value,
-                tolerance_orientation=self.get_parameter('tolerance_orientation').get_parameter_value().double_value
+                tolerance_position=tolerance_position,
+                tolerance_orientation=tolerance_orientation
             )
             partial_result = self.moveit2.wait_until_executed()
             motion_result = self.moveit2.get_last_execution_error_code()
@@ -154,10 +153,11 @@ class MotionServer(Node):
                 return result
 
             future = self.compute_ik_client.call_async(ik_req)
+
             rate = self.create_rate(10)
-            timpout = 3.0
+            timeout = 3.0
             start_time = self.get_clock().now()
-            while not future.done() and (self.get_clock().now() - start_time).nanoseconds / 1e9 < timpout:
+            while not future.done() and (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout:
                 self.get_logger().info("Waiting for IK solution...")
                 rate.sleep()
 
