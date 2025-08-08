@@ -34,6 +34,6 @@ This repository contains the following ROS 2 packages:
 ```bash
 mkdir -p ~/projects/drims2_ws/src
 cd ~/projects/drims2_ws/src
-git clone https://github.com/SamueleSandrini/drims2_motion_control.git
+git clone https://github.com/CNR-STIIMA-IRAS/drims2_motion_control.git
 vcs import < drims2_motion_control/dependencies.repos
 ```
