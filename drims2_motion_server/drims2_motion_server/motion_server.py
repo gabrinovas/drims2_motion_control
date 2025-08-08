@@ -8,6 +8,7 @@ from rclpy.node import Node
 from drims2_msgs.action import MoveToPose, MoveToJoint
 from drims2_msgs.srv import AttachObject, DetachObject
 from geometry_msgs.msg import PoseStamped, TransformStamped
+from builtin_interfaces.msg import Duration
 from tf2_ros import TransformBroadcaster
 
 from pymoveit2 import MoveIt2, MoveIt2State
@@ -35,14 +36,13 @@ class MotionServer(Node):
         self.declare_parameter("tolerance_position", 0.001)
         self.declare_parameter("tolerance_orientation", 0.001)
         self.declare_parameter("max_motion_retries", 3)
-        self.declare_parameter("ik_timeout", 10.0)
+        self.declare_parameter("ik_timeout", 20)
 
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
         self.end_effector_name = self.get_parameter('end_effector_name').get_parameter_value().string_value
         self.base_link_name = self.get_parameter('base_link_name').get_parameter_value().string_value
         self.joint_names = self.get_parameter('joint_names').get_parameter_value().string_array_value
         self.max_motion_retries = self.get_parameter('max_motion_retries').get_parameter_value().integer_value
-
 
         self.internal_node = Node(
             'motion_server_moveit2_internal_node', use_global_arguments=False, )
@@ -142,6 +142,9 @@ class MotionServer(Node):
             ik_req.ik_request.group_name = self.move_group_name
             ik_req.ik_request.pose_stamped = goal_pose
             ik_req.ik_request.avoid_collisions = True
+            ik_req.ik_request.ik_link_name = self.end_effector_name
+            ik_req.ik_request.timeout.sec = self.get_parameter('ik_timeout').get_parameter_value().integer_value
+
             self.moveit2.wait_new_joint_state()
             if self.moveit2.joint_state is not None:
                 ik_req.ik_request.robot_state.joint_state = self.moveit2.joint_state
@@ -201,7 +204,7 @@ class MotionServer(Node):
         ik_req.ik_request.group_name = self.move_group_name
         ik_req.ik_request.pose_stamped = goal_pose
         ik_req.ik_request.avoid_collisions = True
-        ik_req.ik_request.timeout = self.get_parameter('ik_timeout').get_parameter_value().double_value
+        ik_req.ik_request.timeout.sec = self.get_parameter('ik_timeout').get_parameter_value().double_value
 
         self.moveit2.wait_new_joint_state()
         if self.moveit2.joint_state is not None:
