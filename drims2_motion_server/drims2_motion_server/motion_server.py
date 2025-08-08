@@ -1,6 +1,6 @@
-import time
 
 import rclpy
+from typing import Optional
 from rclpy.action import ActionServer, CancelResponse
 from rclpy.action.server import ServerGoalHandle
 from rclpy.node import Node
@@ -11,8 +11,6 @@ from geometry_msgs.msg import PoseStamped, TransformStamped
 from tf2_ros import TransformBroadcaster
 
 from pymoveit2 import MoveIt2, MoveIt2State
-from threading import Thread
-from rclpy.executors import MultiThreadedExecutor
 from moveit_msgs.msg import MoveItErrorCodes
 from moveit_msgs.srv import GetPositionIK
 
@@ -26,7 +24,6 @@ class MotionServer(Node):
         self.declare_parameter('base_link_name', 'base_link')
         self.declare_parameter('end_effector_name', 'tool0')
         self.declare_parameter('planner_id', 'BiTRRT')
-
         self.declare_parameter('cartesian_max_step', 0.005)
         self.declare_parameter('cartesian_fraction_threshold', 0.001)
         self.declare_parameter('cartesian_jump_threshold', 0.001)
@@ -37,11 +34,14 @@ class MotionServer(Node):
         self.declare_parameter("allowed_planning_time", 2.0)
         self.declare_parameter("tolerance_position", 0.001)
         self.declare_parameter("tolerance_orientation", 0.001)
+        self.declare_parameter("max_motion_retries", 3)
+        self.declare_parameter("ik_timeout", 10.0)
 
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
         self.end_effector_name = self.get_parameter('end_effector_name').get_parameter_value().string_value
         self.base_link_name = self.get_parameter('base_link_name').get_parameter_value().string_value
         self.joint_names = self.get_parameter('joint_names').get_parameter_value().string_array_value
+        self.max_motion_retries = self.get_parameter('max_motion_retries').get_parameter_value().integer_value
 
 
         self.internal_node = Node(
@@ -109,7 +109,7 @@ class MotionServer(Node):
         cartesian_motion = goal_handle.request.cartesian_motion
         
         self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
-
+        
         if cartesian_motion:
             cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
             cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
@@ -194,6 +194,48 @@ class MotionServer(Node):
 
     def move_to_pose_cancel_callback(self, goal_handle):
         pass
+
+
+    def _compute_ik(self, goal_pose: PoseStamped) -> Optional[list[float]]:
+        ik_req = GetPositionIK.Request()
+        ik_req.ik_request.group_name = self.move_group_name
+        ik_req.ik_request.pose_stamped = goal_pose
+        ik_req.ik_request.avoid_collisions = True
+        ik_req.ik_request.timeout = self.get_parameter('ik_timeout').get_parameter_value().double_value
+
+        self.moveit2.wait_new_joint_state()
+        if self.moveit2.joint_state is not None:
+            ik_req.ik_request.robot_state.joint_state = self.moveit2.joint_state
+        else:
+            self.get_logger().error("Joint state not yet available, cannot compute IK.")
+            return None
+
+        future = self.compute_ik_client.call_async(ik_req)
+
+        rate = self.create_rate(10)
+        timeout = 3.0
+        start_time = self.get_clock().now()
+        while not future.done() and (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout:
+            self.get_logger().info("Waiting for IK solution...")
+            rate.sleep()
+
+        if not future.done():
+            self.get_logger().warn("IK service call timeout.")
+            return None
+
+        response = future.result()
+        if response.error_code.val != MoveItErrorCodes.SUCCESS:
+            self.get_logger().warn(f"IK failed with code {response.error_code.val}")
+            return None
+
+        joint_state = response.solution.joint_state
+        joint_name_to_position = dict(zip(joint_state.name, joint_state.position))
+        filtered_positions = [
+            joint_name_to_position[name]
+            for name in self.joint_names if name in joint_name_to_position
+        ]
+
+        return filtered_positions
 
     def move_to_joint_cancel_callback(self, goal_handle):
         pass
