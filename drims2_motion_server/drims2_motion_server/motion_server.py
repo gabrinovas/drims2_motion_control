@@ -100,8 +100,11 @@ class MotionServer(Node):
             'compute_ik',
             callback_group=self.callback_group
         )
-        # while not self.compute_ik_client.wait_for_service(timeout_sec=1.0):
-        #     self.get_logger().warn("Waiting for 'compute_ik' service...")
+        if not self.compute_ik_client.wait_for_service(timeout_sec=10.0):
+            self.get_logger().error(
+                "Compute IK service not available, cannot start motion server."
+            )
+            raise RuntimeError("Compute IK service not available")
 
         self.tf_buffer = Buffer()
         self.tf_broadcaster = TransformBroadcaster(self)
@@ -418,7 +421,6 @@ def main(args=None):
     spin_thread.start()
     motion_server_node.init_virtual_to_ee_transform()
     spin_thread.join()
-    # executor.spin()
 
 if __name__ == '__main__':
     main()
