@@ -15,8 +15,8 @@ from tf2_geometry_msgs import do_transform_pose_stamped
 from pymoveit2 import MoveIt2, MoveIt2State
 from moveit_msgs.msg import MoveItErrorCodes
 from moveit_msgs.srv import GetPositionIK
-
-
+from drims2_motion_server.drims2_utils import transform_to_affine, pose_stamped_to_affine, affine_to_transform, transform_to_pose_stamped
+import numpy as np
 
 class MotionServer(Node):
 
@@ -130,19 +130,36 @@ class MotionServer(Node):
             )
             return 
         
+        self.T_ee_from_virtual = self._lookup_transform(
+            target_frame=self.end_effector_name,
+            source_frame=self.virtual_end_effector)
+
+        if self.T_ee_from_virtual is None:
+            self.get_logger().info(
+                f"Failed to retrieve transform from '{self.virtual_end_effector}' "
+                f"to '{self.end_effector_name}' after timeout."
+            )
+        return 
+    
+    def _lookup_transform(self, target_frame: str, source_frame: str) -> Optional[TransformStamped]:
+        """
+        Lookup a transform between two frames.
+        Returns None if the transform is not available.
+        """
         timeout = 10.0
         start_time = self.get_clock().now()
         self.get_logger().info(f"Start time: {start_time}")
         deadline = self.get_clock().now() + rclpy.duration.Duration(seconds=timeout)
         self.get_logger().info(f"Deadline: {deadline}")
         rate = self.create_rate(10)
+        relative_transform = None
         while (self.get_clock().now() < deadline):
             self.get_logger().info("Waiting for virtual->EE transform...")
             try:
                 # Get the transform from virtual frame to end-effector frame
-                self.T_ee_from_virtual = self.tf_buffer.lookup_transform(
-                    target_frame=self.end_effector_name,
-                    source_frame=self.virtual_end_effector,
+                relative_transform = self.tf_buffer.lookup_transform(
+                    target_frame=target_frame,
+                    source_frame=source_frame,
                     time=rclpy.time.Time(),
                     timeout=rclpy.duration.Duration(seconds=1.0)
                 )
@@ -156,29 +173,30 @@ class MotionServer(Node):
                     "Proceeding without offset; will retry on first goal."
                 )
                 rate.sleep()
-                self.get_logger().info("here sfas")
+        return relative_transform    
 
-        if self.T_ee_from_virtual is None:
-            self.get_logger().info(
-                f"Failed to retrieve transform from '{self.virtual_end_effector}' "
-                f"to '{self.end_effector_name}' after {timeout} seconds."
-            )
-        return 
-    
     def _apply_virtual_offset(self, goal_pose: PoseStamped) -> PoseStamped:
         """
         Apply the virtual end-effector offset to the goal pose if necessary.
         If the virtual frame is the same as the end-effector frame, return the original pose.
         """
         if self.T_ee_from_virtual is None:
-            self.get_logger().warn(
-                "No virtual end-effector transform available; "
-                "goal pose will not be adjusted."
-            )
             return goal_pose
         
+        T_base_link_referece = self._lookup_transform(
+            target_frame=self.base_link_name,
+            source_frame=goal_pose.header.frame_id
+        )
+        
+        M_base_link_referece = transform_to_affine(T_base_link_referece)
+        M_reference_goal = pose_stamped_to_affine(goal_pose)
+        M_ee_from_virtual = transform_to_affine(self.T_ee_from_virtual)
+        M_base_virtual_goal = M_base_link_referece @ M_reference_goal @ np.linalg.inv(M_ee_from_virtual)
+
+        T_base_virtual_goal = affine_to_transform(M_base_virtual_goal, self.base_link_name, 'pose_goal_frame')
+
         # Apply the transform to the goal pose
-        transformed_pose = do_transform_pose_stamped(goal_pose, self.T_ee_from_virtual)
+        transformed_pose = transform_to_pose_stamped(T_base_virtual_goal)
         self.get_logger().info(
             f"Applying virtual offset: {self.T_ee_from_virtual.transform}"
         )
@@ -186,12 +204,10 @@ class MotionServer(Node):
 
     def move_to_pose_callback(self, goal_handle: ServerGoalHandle) -> MoveToPose.Result:
         goal_pose: PoseStamped = goal_handle.request.pose_target
-        frame_id = goal_pose.header.frame_id
         goal_pose = self._apply_virtual_offset(goal_pose)
-        goal_pose.header.frame_id = frame_id
 
         cartesian_motion = goal_handle.request.cartesian_motion
-        self.get_logger().info(f"Goal pose: {goal_pose}")
+
         self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
         if cartesian_motion:
             cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
@@ -421,6 +437,7 @@ def main(args=None):
     spin_thread.start()
     motion_server_node.init_virtual_to_ee_transform()
     spin_thread.join()
+    # executor.spin()
 
 if __name__ == '__main__':
     main()
