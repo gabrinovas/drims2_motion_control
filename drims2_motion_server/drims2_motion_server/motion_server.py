@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple, List
 from threading import Thread
 
 import rclpy
@@ -10,7 +10,6 @@ from drims2_msgs.action import MoveToPose, MoveToJoint
 from drims2_msgs.srv import AttachObject, DetachObject
 from geometry_msgs.msg import PoseStamped, TransformStamped
 from tf2_ros import Buffer, TransformListener, TransformException, TransformBroadcaster
-from tf2_geometry_msgs import do_transform_pose_stamped
 
 from pymoveit2 import MoveIt2, MoveIt2State
 from moveit_msgs.msg import MoveItErrorCodes
@@ -39,6 +38,7 @@ class MotionServer(Node):
         self.declare_parameter("tolerance_position", 0.001)
         self.declare_parameter("tolerance_orientation", 0.001)
         self.declare_parameter("max_motion_retries", 3)
+        self.declare_parameter("max_ik_retries", 3)
         self.declare_parameter("ik_timeout", 20)
         self.declare_parameter("virtual_end_effector", 'tip') # Used for better visual usage (think movements in tip frame) 
 
@@ -112,7 +112,6 @@ class MotionServer(Node):
 
         self.internal_util_rate = self.create_rate(10)
         self.T_ee_from_virtual = None
-        self.get_logger().info(f"Virtual transform from '{self.virtual_end_effector}' to '{self.end_effector_name}': {self.T_ee_from_virtual}")
         self.get_logger().info("Motion server is ready to receive requests")
 
     def init_virtual_to_ee_transform(self) -> Optional[TransformStamped]:
@@ -173,7 +172,7 @@ class MotionServer(Node):
                     "Proceeding without offset; will retry on first goal."
                 )
                 rate.sleep()
-        return relative_transform    
+        return relative_transform
 
     def _apply_virtual_offset(self, goal_pose: PoseStamped) -> PoseStamped:
         """
@@ -204,9 +203,12 @@ class MotionServer(Node):
 
     def move_to_pose_callback(self, goal_handle: ServerGoalHandle) -> MoveToPose.Result:
         goal_pose: PoseStamped = goal_handle.request.pose_target
+        cartesian_motion = goal_handle.request.cartesian_motion
+        
         goal_pose = self._apply_virtual_offset(goal_pose)
 
-        cartesian_motion = goal_handle.request.cartesian_motion
+        # Preparing action result
+        action_result = MoveToPose.Result()
 
         self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
         if cartesian_motion:
@@ -228,7 +230,6 @@ class MotionServer(Node):
             self.get_logger().info(f"Partial result: {partial_result}")
             self.get_logger().info(f"Motion result: {motion_result}")
 
-            action_result = MoveToPose.Result()
             if partial_result:
                 if motion_result is None:
                     action_result.result.val = MoveItErrorCodes.FAILURE
@@ -237,51 +238,30 @@ class MotionServer(Node):
             else:
                 action_result.result.val = MoveItErrorCodes.FAILURE
         else:
-            ik_req = GetPositionIK.Request()
-            ik_req.ik_request.group_name = self.move_group_name
-            ik_req.ik_request.pose_stamped = goal_pose
-            ik_req.ik_request.avoid_collisions = True
-            ik_req.ik_request.ik_link_name = self.end_effector_name
-            ik_req.ik_request.timeout.sec = self.get_parameter('ik_timeout').get_parameter_value().integer_value
+            max_ik_retries = self.get_parameter('max_ik_retries').get_parameter_value().integer_value
 
-            self.moveit2.wait_new_joint_state()
-            if self.moveit2.joint_state is not None:
-                ik_req.ik_request.robot_state.joint_state = self.moveit2.joint_state
+            for attempt in range(max_ik_retries + 1):
+                robot_configuration, ik_result_code = self._compute_ik(goal_pose)
+
+                if ik_result_code.val == MoveItErrorCodes.SUCCESS and robot_configuration is not None:
+                    self.get_logger().info(f"IK solution found: {robot_configuration}")
+                    break
+
+                self.get_logger().warn(f"IK computation failed on attempt {attempt} with code {ik_result_code.val}, retrying...")
             else:
-                self.get_logger().error("Joint state not yet available, cannot compute IK.")
+                last_ik_result_code = ik_result_code.val if ik_result_code is not None else MoveItErrorCodes.NO_IK_SOLUTION
+
+                self.get_logger().warn(f"IK computation failed with code {last_ik_result_code.val}")
                 goal_handle.abort()
-                result = MoveToPose.Result()
-                result.result.val = MoveItErrorCodes.INVALID_ROBOT_STATE
-                return result
+                action_result.result.val = last_ik_result_code.val
+                return action_result
 
-            future = self.compute_ik_client.call_async(ik_req)
-
-            rate = self.create_rate(10)
-            timeout = 3.0
-            start_time = self.get_clock().now()
-            while not future.done() and (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout:
-                self.get_logger().info("Waiting for IK solution...")
-                rate.sleep()
-
-            if not future.done() or future.result().error_code.val != MoveItErrorCodes.SUCCESS:
-                self.get_logger().warn("IK solution not found or call failed.")
-                goal_handle.abort()
-                result = MoveToPose.Result()
-                result.result.val = MoveItErrorCodes.NO_IK_SOLUTION
-                return result
-
-            joint_state = future.result().solution.joint_state
-            self.get_logger().info(f"IK joint solution: {joint_state.position}")
-            joint_name_to_position = dict(zip(joint_state.name, joint_state.position))
-            filtered_positions = [joint_name_to_position[name] for name in self.joint_names if name in joint_name_to_position]
-
-            self.moveit2.move_to_configuration(filtered_positions, self.joint_names)
+            self.moveit2.move_to_configuration(robot_configuration, self.joint_names)
             partial_result = self.moveit2.wait_until_executed()
             motion_result = self.moveit2.get_last_execution_error_code()
             self.get_logger().info(f"Partial result: {partial_result}")
             self.get_logger().info(f"Motion result: {motion_result}")
 
-            action_result = MoveToPose.Result()
             if partial_result:
                 if motion_result is None:
                     action_result.result.val = MoveItErrorCodes.FAILURE
@@ -297,21 +277,37 @@ class MotionServer(Node):
     def move_to_pose_cancel_callback(self, goal_handle):
         pass
 
+    
+    def _compute_ik(self, goal_pose: PoseStamped) -> Tuple[Optional[List[float]], MoveItErrorCodes]:
+        """
+        Compute IK for the given pose.
 
-    def _compute_ik(self, goal_pose: PoseStamped) -> Optional[list[float]]:
+        Returns
+        -------
+        (positions, err_code)
+        positions: list of joint positions ordered as self.joint_names, or None on failure
+        err_code : MoveItErrorCodes instance
+        """
         ik_req = GetPositionIK.Request()
         ik_req.ik_request.group_name = self.move_group_name
         ik_req.ik_request.pose_stamped = goal_pose
         ik_req.ik_request.avoid_collisions = True
-        ik_req.ik_request.timeout.sec = self.get_parameter('ik_timeout').get_parameter_value().double_value
+        ik_req.ik_request.ik_link_name = self.end_effector_name
+        ik_req.ik_request.timeout.sec = self.get_parameter('ik_timeout').get_parameter_value().integer_value
 
+        # Return code
+        return_code = MoveItErrorCodes()
+
+        # Current joint state as seed
         self.moveit2.wait_new_joint_state()
         if self.moveit2.joint_state is not None:
             ik_req.ik_request.robot_state.joint_state = self.moveit2.joint_state
         else:
             self.get_logger().error("Joint state not yet available, cannot compute IK.")
-            return None
+            return_code.val = MoveItErrorCodes.INVALID_ROBOT_STATE
+            return None, return_code
 
+        # Call the IK service
         future = self.compute_ik_client.call_async(ik_req)
 
         rate = self.create_rate(10)
@@ -323,21 +319,32 @@ class MotionServer(Node):
 
         if not future.done():
             self.get_logger().warn("IK service call timeout.")
-            return None
+            return_code.val = MoveItErrorCodes.NO_IK_SOLUTION
+            return None, return_code
 
-        response = future.result()
+        try:
+            response = future.result()
+        except Exception as ex:
+            self.get_logger().error(f"IK service call failed: {ex}")
+            return_code.val = MoveItErrorCodes.NO_IK_SOLUTION
+            return None, return_code
+
         if response.error_code.val != MoveItErrorCodes.SUCCESS:
             self.get_logger().warn(f"IK failed with code {response.error_code.val}")
-            return None
+            return None, response.error_code
 
+        # Map to self.joint_names order
         joint_state = response.solution.joint_state
-        joint_name_to_position = dict(zip(joint_state.name, joint_state.position))
-        filtered_positions = [
-            joint_name_to_position[name]
-            for name in self.joint_names if name in joint_name_to_position
-        ]
+        name_to_pos = dict(zip(joint_state.name, joint_state.position))
+        try:
+            positions = [name_to_pos[name] for name in self.joint_names]
+        except KeyError as missing:
+            self.get_logger().error(f"IK solution missing joint: {missing}")
+            return_code.val = MoveItErrorCodes.INVALID_ROBOT_STATE
+            return None, return_code
 
-        return filtered_positions
+        return positions, response.error_code
+
 
     def move_to_joint_cancel_callback(self, goal_handle):
         pass
