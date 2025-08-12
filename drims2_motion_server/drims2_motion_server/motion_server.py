@@ -206,20 +206,127 @@ class MotionServer(Node):
         cartesian_motion = goal_handle.request.cartesian_motion
         
         goal_pose = self._apply_virtual_offset(goal_pose)
+        self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
 
         # Preparing action result
         action_result = MoveToPose.Result()
 
-        self.broadcast_pose_goal_tf(goal_pose)  # For debugging purposes show the goal pose
+        max_motion_retries = self.get_parameter('max_motion_retries').get_parameter_value().integer_value
         if cartesian_motion:
-            cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
-            cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
-            tolerance_position = self.get_parameter('tolerance_position').get_parameter_value().double_value
-            tolerance_orientation = self.get_parameter('tolerance_orientation').get_parameter_value().double_value
+            motion_result = self._move_to_pose_with_retries(goal_pose=goal_pose, 
+                                                            cartesian=True, 
+                                                            max_attempts=max_motion_retries)
+            action_result.result.val = motion_result.val
+            # cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
+            # cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
+            # tolerance_position = self.get_parameter('tolerance_position').get_parameter_value().double_value
+            # tolerance_orientation = self.get_parameter('tolerance_orientation').get_parameter_value().double_value
+
+            # self.moveit2.move_to_pose(
+            #     pose=goal_pose,
+            #     cartesian=True,
+            #     cartesian_max_step=cartesian_max_step,
+            #     cartesian_fraction_threshold=cartesian_fraction_threshold,
+            #     tolerance_position=tolerance_position,
+            #     tolerance_orientation=tolerance_orientation
+            # )
+            # partial_result = self.moveit2.wait_until_executed()
+            # motion_result = self.moveit2.get_last_execution_error_code()
+            # self.get_logger().info(f"Partial result: {partial_result}")
+            # self.get_logger().info(f"Motion result: {motion_result}")
+
+            # if partial_result:
+            #     if motion_result is None:
+            #         action_result.result.val = MoveItErrorCodes.FAILURE
+            #     else:
+            #         action_result.result.val = motion_result.val
+            # else:
+            #     action_result.result.val = MoveItErrorCodes.FAILURE
+        else:
+            max_ik_retries = self.get_parameter('max_ik_retries').get_parameter_value().integer_value
+            last_ik_result_code = MoveItErrorCodes()
+            for attempt in range(max_ik_retries + 1):
+                robot_configuration, ik_result_code = self._compute_ik(goal_pose)
+
+                if ik_result_code.val == MoveItErrorCodes.SUCCESS and robot_configuration is not None:
+                    self.get_logger().info(f"IK solution found: {robot_configuration}")
+                    break
+            else:
+                last_ik_result_code.val = ik_result_code.val if ik_result_code is not None else MoveItErrorCodes.NO_IK_SOLUTION
+
+                self.get_logger().warn(f"IK computation failed with code {last_ik_result_code.val}")
+                self.get_logger().warn(f"Move to pose is aborted due to no IK solution after {max_ik_retries} attempts.")
+                goal_handle.abort()
+                action_result.result.val = last_ik_result_code.val
+                return action_result
+
+            motion_result = self._move_to_configuration_with_retries(robot_configuration, max_motion_retries)
+            action_result.result.val = motion_result.val
+            # self.moveit2.move_to_configuration(robot_configuration, self.joint_names)
+            # partial_result = self.moveit2.wait_until_executed()
+            # motion_result = self.moveit2.get_last_execution_error_code()
+            # self.get_logger().info(f"Partial result: {partial_result}")
+            # self.get_logger().info(f"Motion result: {motion_result}")
+
+            # if partial_result:
+            #     if motion_result is None:
+            #         action_result.result.val = MoveItErrorCodes.FAILURE
+            #     else:
+            #         action_result.result.val = motion_result.val
+            # else:
+            #     action_result.result.val = MoveItErrorCodes.FAILURE
+
+        
+        goal_handle.succeed()
+        return action_result
+
+    def move_to_pose_cancel_callback(self, goal_handle):
+        pass
+
+    def _move_to_configuration_with_retries(self, robot_configuration: List[float], max_attempts: int) -> MoveItErrorCodes:
+        if not robot_configuration or len(robot_configuration) != len(self.joint_names):
+            self.get_logger().error("Invalid robot configuration provided for motion.")
+            return MoveItErrorCodes.INVALID_ROBOT_STATE
+        
+        result_code = MoveItErrorCodes()
+        for attempt in range(1, max_attempts + 1):
+            self.get_logger().info(f"[Attempt {attempt}/{max_attempts}] Moving to configuration")
+
+            self.moveit2.move_to_configuration(robot_configuration, self.joint_names)
+            partial_result = self.moveit2.wait_until_executed()
+            motion_result = self.moveit2.get_last_execution_error_code()
+
+            self.get_logger().info(f"Partial result: {partial_result}")
+            self.get_logger().info(f"Motion result: {motion_result}")
+
+            if partial_result and motion_result and motion_result.val == MoveItErrorCodes.SUCCESS:
+                self.get_logger().info("Motion executed successfully.")
+                return motion_result
+
+            self.get_logger().warn(f"Motion failed with code {motion_result.val if motion_result else 'N/A'}; retrying...")
+
+        # If all attempts fail
+        result_code.val = motion_result.val if motion_result else MoveItErrorCodes.FAILURE
+        return result_code
+
+    def _move_to_pose_with_retries(self, goal_pose: PoseStamped, cartesian: bool, max_attempts: int) -> MoveItErrorCodes:
+        if not goal_pose or not isinstance(goal_pose, PoseStamped):
+            self.get_logger().error("Invalid goal pose provided for motion.")
+            return MoveItErrorCodes.INVALID_ROBOT_STATE
+        
+        cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
+        cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
+        tolerance_position = self.get_parameter('tolerance_position').get_parameter_value().double_value
+        tolerance_orientation = self.get_parameter('tolerance_orientation').get_parameter_value().double_value
+
+        result_code = MoveItErrorCodes()
+        for attempt in range(1, max_attempts + 1):
+            self.get_logger().info(f"[Attempt {attempt}/{max_attempts}] Moving to configuration")
+
 
             self.moveit2.move_to_pose(
                 pose=goal_pose,
-                cartesian=True,
+                cartesian=cartesian,
                 cartesian_max_step=cartesian_max_step,
                 cartesian_fraction_threshold=cartesian_fraction_threshold,
                 tolerance_position=tolerance_position,
@@ -230,52 +337,15 @@ class MotionServer(Node):
             self.get_logger().info(f"Partial result: {partial_result}")
             self.get_logger().info(f"Motion result: {motion_result}")
 
-            if partial_result:
-                if motion_result is None:
-                    action_result.result.val = MoveItErrorCodes.FAILURE
-                else:
-                    action_result.result.val = motion_result.val
-            else:
-                action_result.result.val = MoveItErrorCodes.FAILURE
-        else:
-            max_ik_retries = self.get_parameter('max_ik_retries').get_parameter_value().integer_value
+            if partial_result and motion_result and motion_result.val == MoveItErrorCodes.SUCCESS:
+                self.get_logger().info("Motion executed successfully.")
+                return motion_result
 
-            for attempt in range(max_ik_retries + 1):
-                robot_configuration, ik_result_code = self._compute_ik(goal_pose)
+            self.get_logger().warn(f"Motion failed with code {motion_result.val if motion_result else 'N/A'}; retrying...")
 
-                if ik_result_code.val == MoveItErrorCodes.SUCCESS and robot_configuration is not None:
-                    self.get_logger().info(f"IK solution found: {robot_configuration}")
-                    break
-
-                self.get_logger().warn(f"IK computation failed on attempt {attempt} with code {ik_result_code.val}, retrying...")
-            else:
-                last_ik_result_code = ik_result_code.val if ik_result_code is not None else MoveItErrorCodes.NO_IK_SOLUTION
-
-                self.get_logger().warn(f"IK computation failed with code {last_ik_result_code.val}")
-                goal_handle.abort()
-                action_result.result.val = last_ik_result_code.val
-                return action_result
-
-            self.moveit2.move_to_configuration(robot_configuration, self.joint_names)
-            partial_result = self.moveit2.wait_until_executed()
-            motion_result = self.moveit2.get_last_execution_error_code()
-            self.get_logger().info(f"Partial result: {partial_result}")
-            self.get_logger().info(f"Motion result: {motion_result}")
-
-            if partial_result:
-                if motion_result is None:
-                    action_result.result.val = MoveItErrorCodes.FAILURE
-                else:
-                    action_result.result.val = motion_result.val
-            else:
-                action_result.result.val = MoveItErrorCodes.FAILURE
-
-        
-        goal_handle.succeed()
-        return action_result
-
-    def move_to_pose_cancel_callback(self, goal_handle):
-        pass
+        # If all attempts fail
+        result_code.val = motion_result.val if motion_result else MoveItErrorCodes.FAILURE
+        return result_code
 
     
     def _compute_ik(self, goal_pose: PoseStamped) -> Tuple[Optional[List[float]], MoveItErrorCodes]:
@@ -354,20 +424,23 @@ class MotionServer(Node):
         joints_goal = goal_handle.request.joint_target
         self.get_logger().info(f"Moving to joint: {joints_goal}")
 
-        self.moveit2.move_to_configuration(joints_goal)
-        partial_result = self.moveit2.wait_until_executed()
-        motion_result = self.moveit2.get_last_execution_error_code()
-        self.get_logger().info(f"Partial result: {partial_result}")
-        self.get_logger().info(f"Motion result: {motion_result}")
-
+        motion_result = self._move_to_configuration_with_retries(joints_goal, self.max_motion_retries)
         action_result = MoveToJoint.Result()
-        if partial_result:
-            if motion_result is None:
-                action_result.result.val = MoveItErrorCodes.FAILURE
-            else:
-                action_result.result.val = motion_result.val
-        else:
-            action_result.result.val = MoveItErrorCodes.FAILURE
+        action_result.result.val = motion_result.val
+        # self.moveit2.move_to_configuration(joints_goal)
+        # partial_result = self.moveit2.wait_until_executed()
+        # motion_result = self.moveit2.get_last_execution_error_code()
+        # self.get_logger().info(f"Partial result: {partial_result}")
+        # self.get_logger().info(f"Motion result: {motion_result}")
+
+        # action_result = MoveToJoint.Result()
+        # if partial_result:
+        #     if motion_result is None:
+        #         action_result.result.val = MoveItErrorCodes.FAILURE
+        #     else:
+        #         action_result.result.val = motion_result.val
+        # else:
+        #     action_result.result.val = MoveItErrorCodes.FAILURE
         
         goal_handle.succeed()
         return action_result
