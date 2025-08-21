@@ -8,11 +8,23 @@ from control_msgs.action import GripperCommand
 
 class MotionClient(Node):
 
-    def __init__(self):
+    def __init__(self,
+                 move_to_pose_action_name='move_to_pose',
+                 move_to_joint_action_name='move_to_joint',
+                 gripper_action_name='robotiq_action_controller/gripper_cmd'):
         super().__init__('motion_client_node')
-        self.move_to_pose_client = ActionClient(self, MoveToPose, 'move_to_pose')
-        self.move_to_joint_client = ActionClient(self, MoveToJoint, 'move_to_joint')
-        self.gripper_client = ActionClient(self, GripperCommand, 'robotiq_action_controller/gripper_cmd')
+
+        self.declare_parameter('move_to_pose_action_name', move_to_pose_action_name)
+        self.declare_parameter('move_to_joint_action_name', move_to_joint_action_name)
+        self.declare_parameter('gripper_action_name', gripper_action_name)
+
+        move_to_pose_action_name = self.get_parameter('move_to_pose_action_name').get_parameter_value().string_value
+        move_to_joint_action_name = self.get_parameter('move_to_joint_action_name').get_parameter_value().string_value
+        gripper_action_name = self.get_parameter('gripper_action_name').get_parameter_value().string_value
+
+        self.move_to_pose_client = ActionClient(self, MoveToPose, move_to_pose_action_name)
+        self.move_to_joint_client = ActionClient(self, MoveToJoint, move_to_joint_action_name)
+        self.gripper_client = ActionClient(self, GripperCommand, gripper_action_name)
         self.attach_object_client = self.create_client(AttachObject, 'attach_object')
         self.detach_object_client = self.create_client(DetachObject, 'detach_object')
 
