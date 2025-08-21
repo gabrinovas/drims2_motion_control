@@ -217,31 +217,6 @@ class MotionServer(Node):
                                                             cartesian=True, 
                                                             max_attempts=max_motion_retries)
             action_result.result.val = motion_result.val
-            # cartesian_max_step = self.get_parameter('cartesian_max_step').get_parameter_value().double_value
-            # cartesian_fraction_threshold = self.get_parameter('cartesian_fraction_threshold').get_parameter_value().double_value
-            # tolerance_position = self.get_parameter('tolerance_position').get_parameter_value().double_value
-            # tolerance_orientation = self.get_parameter('tolerance_orientation').get_parameter_value().double_value
-
-            # self.moveit2.move_to_pose(
-            #     pose=goal_pose,
-            #     cartesian=True,
-            #     cartesian_max_step=cartesian_max_step,
-            #     cartesian_fraction_threshold=cartesian_fraction_threshold,
-            #     tolerance_position=tolerance_position,
-            #     tolerance_orientation=tolerance_orientation
-            # )
-            # partial_result = self.moveit2.wait_until_executed()
-            # motion_result = self.moveit2.get_last_execution_error_code()
-            # self.get_logger().info(f"Partial result: {partial_result}")
-            # self.get_logger().info(f"Motion result: {motion_result}")
-
-            # if partial_result:
-            #     if motion_result is None:
-            #         action_result.result.val = MoveItErrorCodes.FAILURE
-            #     else:
-            #         action_result.result.val = motion_result.val
-            # else:
-            #     action_result.result.val = MoveItErrorCodes.FAILURE
         else:
             max_ik_retries = self.get_parameter('max_ik_retries').get_parameter_value().integer_value
             last_ik_result_code = MoveItErrorCodes()
@@ -262,20 +237,6 @@ class MotionServer(Node):
 
             motion_result = self._move_to_configuration_with_retries(robot_configuration, max_motion_retries)
             action_result.result.val = motion_result.val
-            # self.moveit2.move_to_configuration(robot_configuration, self.joint_names)
-            # partial_result = self.moveit2.wait_until_executed()
-            # motion_result = self.moveit2.get_last_execution_error_code()
-            # self.get_logger().info(f"Partial result: {partial_result}")
-            # self.get_logger().info(f"Motion result: {motion_result}")
-
-            # if partial_result:
-            #     if motion_result is None:
-            #         action_result.result.val = MoveItErrorCodes.FAILURE
-            #     else:
-            #         action_result.result.val = motion_result.val
-            # else:
-            #     action_result.result.val = MoveItErrorCodes.FAILURE
-
         
         goal_handle.succeed()
         return action_result
@@ -427,20 +388,6 @@ class MotionServer(Node):
         motion_result = self._move_to_configuration_with_retries(joints_goal, self.max_motion_retries)
         action_result = MoveToJoint.Result()
         action_result.result.val = motion_result.val
-        # self.moveit2.move_to_configuration(joints_goal)
-        # partial_result = self.moveit2.wait_until_executed()
-        # motion_result = self.moveit2.get_last_execution_error_code()
-        # self.get_logger().info(f"Partial result: {partial_result}")
-        # self.get_logger().info(f"Motion result: {motion_result}")
-
-        # action_result = MoveToJoint.Result()
-        # if partial_result:
-        #     if motion_result is None:
-        #         action_result.result.val = MoveItErrorCodes.FAILURE
-        #     else:
-        #         action_result.result.val = motion_result.val
-        # else:
-        #     action_result.result.val = MoveItErrorCodes.FAILURE
         
         goal_handle.succeed()
         return action_result
