@@ -1,16 +1,20 @@
 import rclpy
 from rclpy.node import Node
 from drims2_msgs.srv import DiceIdentification
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped
 import random
 from rclpy.qos import QoSProfile
+from tf2_ros import TransformBroadcaster
+
 
 class FakeDiceIdentificationServer(Node):
 
     def __init__(self):
         super().__init__('fake_dice_identification_server')
         
+        # Parameters
         self.declare_parameter('frame_id', 'world')
+        self.declare_parameter('child_frame_id', 'fake_dice')
         self.declare_parameter('random_face', False)
         self.declare_parameter('face', 1)
 
@@ -23,12 +27,17 @@ class FakeDiceIdentificationServer(Node):
         self.declare_parameter('orientation.z', 0.0)
         self.declare_parameter('orientation.w', 1.0)
 
+        # Service
         self.srv = self.create_service(
             DiceIdentification,
             'dice_identification',
             self.dice_identification_callback,
             qos_profile=QoSProfile(depth=10)
         )
+
+        # TF broadcaster
+        self.tf_broadcaster = TransformBroadcaster(self)
+
         self.get_logger().info('Fake DiceIdentification service ready.')
 
     def dice_identification_callback(self, request, response):
@@ -56,7 +65,23 @@ class FakeDiceIdentificationServer(Node):
         response.pose = pose
         response.success = True
 
-        self.get_logger().info(f'Returning face: {face}, pose: [{pose.pose.position.x}, {pose.pose.position.y}, {pose.pose.position.z}]')
+        self.get_logger().info(
+            f'Returning face: {face}, pose: [{pose.pose.position.x}, {pose.pose.position.y}, {pose.pose.position.z}]'
+        )
+
+        # Broadcast TF
+        t = TransformStamped()
+        t.header.stamp = pose.header.stamp
+        t.header.frame_id = pose.header.frame_id
+        t.child_frame_id = self.get_parameter('child_frame_id').get_parameter_value().string_value
+
+        t.transform.translation.x = pose.pose.position.x
+        t.transform.translation.y = pose.pose.position.y
+        t.transform.translation.z = pose.pose.position.z
+
+        t.transform.rotation = pose.pose.orientation
+
+        self.tf_broadcaster.sendTransform(t)
 
         return response
 

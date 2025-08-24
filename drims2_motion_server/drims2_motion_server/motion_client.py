@@ -12,7 +12,7 @@ class MotionClient(Node):
                  move_to_pose_action_name='move_to_pose',
                  move_to_joint_action_name='move_to_joint',
                  gripper_action_name='robotiq_action_controller/gripper_cmd'):
-        super().__init__('motion_client_node')
+        super().__init__('motion_client_node', use_global_arguments=False)
 
         self.declare_parameter('move_to_pose_action_name', move_to_pose_action_name)
         self.declare_parameter('move_to_joint_action_name', move_to_joint_action_name)
