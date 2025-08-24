@@ -14,6 +14,7 @@ This repository contains the following ROS 2 packages:
   - Services:
     - `AttachObject`
     - `DetachObject`
+    - `DiceIdentification`
 
 
 - **`drims2_motion_server`**  
