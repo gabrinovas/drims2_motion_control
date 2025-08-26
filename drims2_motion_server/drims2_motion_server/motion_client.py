@@ -1,10 +1,15 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
+
+from typing import Tuple
+
 from drims2_msgs.action import MoveToPose, MoveToJoint
 from drims2_msgs.srv import AttachObject, DetachObject
+
 from geometry_msgs.msg import PoseStamped
 from control_msgs.action import GripperCommand
+from moveit_msgs.msg import MoveItErrorCodes
 
 class MotionClient(Node):
 
@@ -36,10 +41,11 @@ class MotionClient(Node):
             raise RuntimeError("AttachObject service not available")
         if not self.detach_object_client.wait_for_service(timeout_sec=10.0):
             raise RuntimeError("DetachObject service not available")
-        # if not self.gripper_client.wait_for_server(timeout_sec=10.0):
-        #     raise RuntimeError("GripperCommand action server not available")
+        if not self.gripper_client.wait_for_server(timeout_sec=10.0):
+            raise RuntimeError("GripperCommand action server not available")
 
-    def move_to_pose(self, pose: PoseStamped, cartesian_motion: bool = False):
+    def move_to_pose(self, pose: PoseStamped, 
+                     cartesian_motion: bool = False) -> MoveItErrorCodes:
         """API ROS-Free: Move to pose"""
         if not self.move_to_pose_client.wait_for_server(timeout_sec=5.0):
             raise RuntimeError("MoveToPose action server not available")
@@ -58,9 +64,9 @@ class MotionClient(Node):
         result_future = goal_handle.get_result_async()
         rclpy.spin_until_future_complete(self, result_future)
         
-        return result_future.result().result.result.val  # Success or Failure
+        return result_future.result().result.result
 
-    def move_to_joint(self, joint_positions: list[float]):
+    def move_to_joint(self, joint_positions: list[float]) -> MoveItErrorCodes:
         """API ROS-Free: Move to joint positions"""
         if not self.move_to_joint_client.wait_for_server(timeout_sec=5.0):
             raise RuntimeError("MoveToJoint action server not available")
@@ -78,9 +84,9 @@ class MotionClient(Node):
         result_future = goal_handle.get_result_async()
         rclpy.spin_until_future_complete(self, result_future)
 
-        return result_future.result().result.result.val  # Success or Failure
+        return result_future.result().result.result
 
-    def attach_object(self, object_id: str, target_frame_id: str):
+    def attach_object(self, object_id: str, target_frame_id: str) -> bool:
         """API ROS-Free: Attach an object to the robot"""
         if not self.attach_object_client.wait_for_service(timeout_sec=5.0):
             raise RuntimeError("AttachObject service not available")
@@ -94,7 +100,7 @@ class MotionClient(Node):
 
         return future.result().success
     
-    def detach_object(self, object_id: str):
+    def detach_object(self, object_id: str) -> bool:
         """API ROS-Free: Detach an object from the robot"""
         if not self.detach_object_client.wait_for_service(timeout_sec=5.0):
             raise RuntimeError("DetachObject service not available")
@@ -107,7 +113,9 @@ class MotionClient(Node):
 
         return future.result().success
 
-    def gripper_command(self, position: float, max_effort: float = 0.0):
+    def gripper_command(self, 
+                        position: float, 
+                        max_effort: float = 0.0) -> Tuple[bool, bool]:
         """API ROS-Free: Send command to Robotiq gripper"""
         if not self.gripper_client.wait_for_server(timeout_sec=5.0):
             raise RuntimeError("GripperCommand action server not available")
