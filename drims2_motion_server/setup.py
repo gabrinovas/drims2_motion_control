@@ -19,8 +19,8 @@ setup(
                       'drims2_msgs'],
     zip_safe=True,
     maintainer='kalman',
-    maintainer_email='samuele.sandrini@polito.it',
-    description='Motion server for DRIMS2',
+    maintainer_email='samuele.sandrini@stiima.cmr.it',
+    description='ROS 2 Motion server and client utilities for MoveIt2-based manipulation and end-effector support, including some utils',
     license='Apache License 2.0',
     tests_require=['pytest'],
     entry_points={

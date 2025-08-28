@@ -12,12 +12,33 @@ from control_msgs.action import GripperCommand
 from moveit_msgs.msg import MoveItErrorCodes
 
 class MotionClient(Node):
+    """ROS 2 Client for controlling robot motion and gripper.
+
+    This class provides a simplified interface for sending commands
+    to the robot via action servers and services. Supported operations:
+    - Move to a target pose
+    - Move to joint configurations
+    - Attach/detach objects
+    - Move the gripper
+    """
+
 
     def __init__(self,
-                 move_to_pose_action_name='move_to_pose',
-                 move_to_joint_action_name='move_to_joint',
-                 gripper_action_name='robotiq_action_controller/gripper_cmd'):
+                 move_to_pose_action_name:str ='move_to_pose',
+                 move_to_joint_action_name:str ='move_to_joint',
+                 gripper_action_name:str ='robotiq_action_controller/gripper_cmd'):
         super().__init__('motion_client_node', use_global_arguments=False)
+        """Initialize the MotionClient.
+
+        Args:
+            move_to_pose_action_name (str): Action server name for moving to a pose.
+            move_to_joint_action_name (str): Action server name for moving to joint positions.
+            gripper_action_name (str): Action server name for controlling the gripper.
+
+        Raises:
+            RuntimeError: If one of the required action servers or services is not available.
+        """
+
 
         self.declare_parameter('move_to_pose_action_name', move_to_pose_action_name)
         self.declare_parameter('move_to_joint_action_name', move_to_joint_action_name)
@@ -46,7 +67,18 @@ class MotionClient(Node):
 
     def move_to_pose(self, pose: PoseStamped, 
                      cartesian_motion: bool = False) -> MoveItErrorCodes:
-        """API ROS-Free: Move to pose"""
+        """Move the robot to a target pose.
+
+        Args:
+            pose (PoseStamped): Target pose for the robot.
+            cartesian_motion (bool, optional): If True, uses Cartesian trajectories. Defaults to False.
+
+        Returns:
+            MoveItErrorCodes: Result code returned by the motion planner.
+
+        Raises:
+            RuntimeError: If the action server is not available or the goal was rejected.
+        """
         if not self.move_to_pose_client.wait_for_server(timeout_sec=5.0):
             raise RuntimeError("MoveToPose action server not available")
 
@@ -67,7 +99,17 @@ class MotionClient(Node):
         return result_future.result().result.result
 
     def move_to_joint(self, joint_positions: list[float]) -> MoveItErrorCodes:
-        """API ROS-Free: Move to joint positions"""
+        """Move the robot to a specific joint configuration.
+
+        Args:
+            joint_positions (list[float]): List of target joint values.
+
+        Returns:
+            MoveItErrorCodes: Result code returned by the motion planner.
+
+        Raises:
+            RuntimeError: If the action server is not available or the goal was rejected.
+        """
         if not self.move_to_joint_client.wait_for_server(timeout_sec=5.0):
             raise RuntimeError("MoveToJoint action server not available")
 
@@ -87,7 +129,18 @@ class MotionClient(Node):
         return result_future.result().result.result
 
     def attach_object(self, object_id: str, target_frame_id: str) -> bool:
-        """API ROS-Free: Attach an object to the robot"""
+        """Attach an object to the robot (e.g., to the gripper).
+
+        Args:
+            object_id (str): ID of the object in the MoveIt scene.
+            target_frame_id (str): Frame of the robot to which the object should be attached.
+
+        Returns:
+            bool: True if the operation succeeded, False otherwise.
+
+        Raises:
+            RuntimeError: If the service is not available.
+        """
         if not self.attach_object_client.wait_for_service(timeout_sec=5.0):
             raise RuntimeError("AttachObject service not available")
 
@@ -101,7 +154,17 @@ class MotionClient(Node):
         return future.result().success
     
     def detach_object(self, object_id: str) -> bool:
-        """API ROS-Free: Detach an object from the robot"""
+        """Detach an object from the robot.
+
+        Args:
+            object_id (str): ID of the object to detach.
+
+        Returns:
+            bool: True if the operation succeeded, False otherwise.
+
+        Raises:
+            RuntimeError: If the service is not available.
+        """
         if not self.detach_object_client.wait_for_service(timeout_sec=5.0):
             raise RuntimeError("DetachObject service not available")
 
@@ -116,7 +179,20 @@ class MotionClient(Node):
     def gripper_command(self, 
                         position: float, 
                         max_effort: float = 0.0) -> Tuple[bool, bool]:
-        """API ROS-Free: Send command to Robotiq gripper"""
+        """Send a command to the gripper, i.e, move it to a specific position.
+
+        Args:
+            position (float): Target position of the gripper (units depend on controller configuration).
+            max_effort (float, optional): Maximum force applied. Defaults to 0.0 (it's enough most of the time).
+
+        Returns:
+            Tuple[bool, bool]:
+                - reached_goal (bool): True if the gripper reached the target position.
+                - stalled (bool): True if the gripper stalled during execution.
+
+        Raises:
+            RuntimeError: If the action server is not available or the goal was rejected.
+        """
         if not self.gripper_client.wait_for_server(timeout_sec=5.0):
             raise RuntimeError("GripperCommand action server not available")
 

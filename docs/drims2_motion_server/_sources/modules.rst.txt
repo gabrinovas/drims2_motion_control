@@ -1,0 +1,7 @@
+drims2_motion_server
+====================
+
+.. toctree::
+   :maxdepth: 4
+
+   drims2_motion_server
