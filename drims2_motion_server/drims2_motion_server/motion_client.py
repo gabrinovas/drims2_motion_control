@@ -26,7 +26,7 @@ class MotionClient(Node):
     def __init__(self,
                  move_to_pose_action_name:str ='move_to_pose',
                  move_to_joint_action_name:str ='move_to_joint',
-                 gripper_action_name:str ='robotiq_action_controller/gripper_cmd'):
+                 gripper_action_name:str ='/gripper_action_controller/gripper_cmd'):
         super().__init__('motion_client_node', use_global_arguments=False)
         """Initialize the MotionClient.
 
@@ -197,8 +197,8 @@ class MotionClient(Node):
             raise RuntimeError("GripperCommand action server not available")
 
         goal_msg = GripperCommand.Goal()
-        goal_msg.command.position = position
-        goal_msg.command.max_effort = max_effort
+        goal_msg.command.position = float(position)
+        goal_msg.command.max_effort = float(max_effort)
 
         future = self.gripper_client.send_goal_async(goal_msg)
         rclpy.spin_until_future_complete(self, future)
