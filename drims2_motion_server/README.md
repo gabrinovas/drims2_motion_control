@@ -132,6 +132,8 @@ ros2 action send_goal /robotiq_action_controller/gripper_cmd control_msgs/action
 
 ## API Overview
 
+🔗 [API Website](https://cnr-stiima-iras.github.io/drims2_motion_control/index.html)
+
 ### MotionServer
 
 * Exposes action servers for `MoveToPose` and `MoveToJoint`.

@@ -23,6 +23,8 @@ This repository contains the following ROS 2 packages:
   - Handles `AttachObject` and `DetachObject` service calls.
   - Interfaces with **MoveIt** to plan and execute robot motions.
 
+  🔗 [Documentation](https://cnr-stiima-iras.github.io/drims2_motion_control/index.html)
+
 - **`drims2_behavior_tree`**  
   Integrates a **Behavior Tree engine** to control task execution. This package contains:
   - Custom **leaf nodes** for motion commands.
