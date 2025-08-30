@@ -267,7 +267,7 @@ class MotionServer(Node):
             self.get_logger().warn(f"Motion failed with code {motion_result.val if motion_result else 'N/A'}; retrying...")
 
         # If all attempts fail
-        result_code.val = motion_result.val if motion_result else MoveItErrorCodes.FAILURE
+        result_code.val = motion_result.val if motion_result and partial_result else MoveItErrorCodes.FAILURE
         return result_code
 
     def _move_to_pose_with_retries(self, goal_pose: PoseStamped, cartesian: bool, max_attempts: int) -> MoveItErrorCodes:
@@ -322,7 +322,7 @@ class MotionServer(Node):
         ik_req = GetPositionIK.Request()
         ik_req.ik_request.group_name = self.move_group_name
         ik_req.ik_request.pose_stamped = goal_pose
-        ik_req.ik_request.avoid_collisions = True
+        ik_req.ik_request.avoid_collisions = False
         ik_req.ik_request.ik_link_name = self.end_effector_name
         ik_req.ik_request.timeout.sec = self.get_parameter('ik_timeout').get_parameter_value().integer_value
 
