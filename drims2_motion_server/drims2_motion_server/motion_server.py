@@ -41,6 +41,7 @@ class MotionServer(Node):
         self.declare_parameter("max_ik_retries", 3)
         self.declare_parameter("ik_timeout", 20)
         self.declare_parameter("virtual_end_effector", 'tip') # Used for better visual usage (think movements in tip frame) 
+        self.declare_parameter("compute_ik_service_name", "compute_ik")
 
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
         self.end_effector_name = self.get_parameter('end_effector_name').get_parameter_value().string_value
@@ -48,6 +49,7 @@ class MotionServer(Node):
         self.joint_names = self.get_parameter('joint_names').get_parameter_value().string_array_value
         self.max_motion_retries = self.get_parameter('max_motion_retries').get_parameter_value().integer_value
         self.virtual_end_effector = self.get_parameter('virtual_end_effector').get_parameter_value().string_value
+        compute_ik_service_name = self.get_parameter('compute_ik_service_name').get_parameter_value().string_value
 
         self.internal_node = Node(
             'motion_server_moveit2_internal_node', use_global_arguments=False, )
@@ -97,7 +99,7 @@ class MotionServer(Node):
         )
         self.compute_ik_client = self.create_client(
             GetPositionIK,
-            'compute_ik',
+            compute_ik_service_name,
             callback_group=self.callback_group
         )
         if not self.compute_ik_client.wait_for_service(timeout_sec=10.0):
