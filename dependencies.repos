@@ -1,9 +1,9 @@
 repositories:
   behaviortree_ros2:
     type: git
-    url: https://github.com/BehaviorTree/BehaviorTree.ROS2.git
+    url: https://github.com/gabrinovas/BehaviorTree.ROS2.git
     version: humble
   pymoveit2:
     type: git
-    url: https://github.com/CNR-STIIMA-IRAS/pymoveit2.git
+    url: https://github.com/gabrinovas/pymoveit2.git
     version: main
