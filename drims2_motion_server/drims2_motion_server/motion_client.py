@@ -19,21 +19,21 @@ class MotionClient(Node):
     - Move to a target pose
     - Move to joint configurations
     - Attach/detach objects
-    - Move the gripper
+    - Move the gripper (supports both Robotiq and OnRobot 2FG7)
     """
 
 
     def __init__(self,
                  move_to_pose_action_name:str ='move_to_pose',
                  move_to_joint_action_name:str ='move_to_joint',
-                 gripper_action_name:str ='/gripper_action_controller/gripper_cmd'):
+                 gripper_type:str ='onrobot_2fg7'):
         super().__init__('motion_client_node', use_global_arguments=False)
         """Initialize the MotionClient.
 
         Args:
             move_to_pose_action_name (str): Action server name for moving to a pose.
             move_to_joint_action_name (str): Action server name for moving to joint positions.
-            gripper_action_name (str): Action server name for controlling the gripper.
+            gripper_type (str): Type of gripper - 'robotiq' or 'onrobot_2fg7'
 
         Raises:
             RuntimeError: If one of the required action servers or services is not available.
@@ -42,11 +42,25 @@ class MotionClient(Node):
 
         self.declare_parameter('move_to_pose_action_name', move_to_pose_action_name)
         self.declare_parameter('move_to_joint_action_name', move_to_joint_action_name)
-        self.declare_parameter('gripper_action_name', gripper_action_name)
+        self.declare_parameter('gripper_type', gripper_type)
 
         move_to_pose_action_name = self.get_parameter('move_to_pose_action_name').get_parameter_value().string_value
         move_to_joint_action_name = self.get_parameter('move_to_joint_action_name').get_parameter_value().string_value
-        gripper_action_name = self.get_parameter('gripper_action_name').get_parameter_value().string_value
+        gripper_type = self.get_parameter('gripper_type').get_parameter_value().string_value
+
+        # Set gripper action name based on type
+        if gripper_type == "robotiq":
+            gripper_action_name = "/robotiq_action_controller/gripper_cmd"
+            self.get_logger().info("Using Robotiq gripper configuration")
+        elif gripper_type == "onrobot_2fg7":
+            gripper_action_name = "/gripper_action"
+            self.get_logger().info("Using OnRobot 2FG7 gripper configuration")
+        else:
+            self.get_logger().warn(f"Unknown gripper type: {gripper_type}, defaulting to OnRobot 2FG7")
+            gripper_action_name = "/gripper_action"
+            gripper_type = "onrobot_2fg7"
+
+        self.gripper_type = gripper_type
 
         self.move_to_pose_client = ActionClient(self, MoveToPose, move_to_pose_action_name)
         self.move_to_joint_client = ActionClient(self, MoveToJoint, move_to_joint_action_name)
@@ -63,7 +77,8 @@ class MotionClient(Node):
         if not self.detach_object_client.wait_for_service(timeout_sec=10.0):
             raise RuntimeError("DetachObject service not available")
         if not self.gripper_client.wait_for_server(timeout_sec=10.0):
-            raise RuntimeError("GripperCommand action server not available")
+            self.get_logger().warn(f"GripperCommand action server not available at {gripper_action_name}")
+            # Don't raise error as gripper might not be critical for all operations
 
     def move_to_pose(self, pose: PoseStamped, 
                      cartesian_motion: bool = False) -> MoveItErrorCodes:
@@ -182,8 +197,12 @@ class MotionClient(Node):
         """Send a command to the gripper, i.e, move it to a specific position.
 
         Args:
-            position (float): Target position of the gripper (units depend on controller configuration).
-            max_effort (float, optional): Maximum force applied. Defaults to 0.0 (it's enough most of the time).
+            position (float): Target position of the gripper.
+                - For Robotiq: position in meters (0.0 to 0.79)
+                - For OnRobot 2FG7: total opening in meters (0.035 to 0.075)
+            max_effort (float, optional): Maximum force applied. 
+                - For Robotiq: typically 0.0 to 1.0
+                - For OnRobot 2FG7: force in Newtons (0.0 to 100.0)
 
         Returns:
             Tuple[bool, bool]:
@@ -197,8 +216,22 @@ class MotionClient(Node):
             raise RuntimeError("GripperCommand action server not available")
 
         goal_msg = GripperCommand.Goal()
-        goal_msg.command.position = float(position)
-        goal_msg.command.max_effort = float(max_effort)
+        
+        # Handle different gripper types
+        if self.gripper_type == "onrobot_2fg7":
+            # OnRobot 2FG7: Convert total opening to finger position
+            # Total opening range: 0.035m (closed) to 0.075m (open)
+            # Each finger moves 0.0 to 0.020m from center
+            total_opening = max(0.035, min(0.075, position))
+            finger_position = (total_opening - 0.035) / 2.0  # Convert to single finger movement
+            goal_msg.command.position = float(finger_position)
+            goal_msg.command.max_effort = float(max_effort)
+            self.get_logger().info(f"OnRobot 2FG7 command - Total opening: {total_opening:.3f}m, Finger position: {finger_position:.3f}m, Force: {max_effort:.1f}N")
+        else:
+            # Robotiq: Use position directly (0.0 to 0.79)
+            goal_msg.command.position = float(position)
+            goal_msg.command.max_effort = float(max_effort)
+            self.get_logger().info(f"Robotiq command - Position: {position:.3f}m, Max effort: {max_effort:.1f}")
 
         future = self.gripper_client.send_goal_async(goal_msg)
         rclpy.spin_until_future_complete(self, future)

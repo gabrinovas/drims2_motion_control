@@ -1,29 +1,52 @@
 <root BTCPP_format="4" >
      <BehaviorTree ID="MainTree">
         <Sequence>
-            <!-- <DiceIdentification service_name="/dice_identification" /> -->
+            <!-- 
+            Example for OnRobot 2FG7 Gripper 
+            Position range: 0.035 (closed) to 0.075 (open) meters total opening
+            Max effort: 0-100 Newtons
+            -->
+            <GripperCommand action_name="/gripper_action" position="0.075" max_effort="50.0"/>
+            <Sleep msec="1000" />
+            <MoveToPose action_name="/move_to_pose" frame_id="base_link" position="0.4;0.0;0.3" orientation="0.0;0.0;0.0;1.0"/>
+            <GripperCommand action_name="/gripper_action" position="0.035" max_effort="50.0"/>
+            <Sleep msec="1000" />
+            <MoveToJoint action_name="/move_to_joint" joint_target="-1.0;-1.83;1.4;5.0;4.9;-3.0"/>
+            <GripperCommand action_name="/gripper_action" position="0.075" max_effort="50.0"/>
+            <Sleep msec="1000" />
+            <MoveToPose action_name="/move_to_pose" cartesian_motion="true" frame_id="tip" position="0.0;0.0;0.05" orientation="0.0;0.0;0.0;1.0"/>
+        </Sequence>
+     </BehaviorTree>
+</root>  
+
+<!-- 
+Alternative example for Robotiq Gripper (commented out)
+<root BTCPP_format="4" >
+     <BehaviorTree ID="MainTree">
+        <Sequence>
             <GripperCommand action_name="/robotiq_action_controller/gripper_cmd" position="0.0" max_effort="1.0"/>
             <Sleep msec="1000" />
-            <MoveToPose action_name="/move_to_pose" frame_id="ur10e_base_link" position="-0.28;-0.16;0.8" orientation="0.0;0.0;0.0;1.0"/>
+            <MoveToPose action_name="/move_to_pose" frame_id="base_link" position="0.4;0.0;0.3" orientation="0.0;0.0;0.0;1.0"/>
             <GripperCommand action_name="/robotiq_action_controller/gripper_cmd" position="0.79" max_effort="1.0"/>
             <Sleep msec="1000" />
-            <!-- <MoveToJoint action_name="/move_to_joint" joint_target="1.5;-4.0;2.4;-1.5;1.5;0.0"/> -->
             <MoveToJoint action_name="/move_to_joint" joint_target="-1.0;-1.83;1.4;5.0;4.9;-3.0"/>
             <GripperCommand action_name="/robotiq_action_controller/gripper_cmd" position="0.0" max_effort="1.0"/>
             <Sleep msec="1000" />
-            <MoveToPose action_name="/move_to_pose" cartesian_motion="true" frame_id="ur10e_tool0" position="0.0;0.0;0.05" orientation="0.0;0.0;0.0;1.0"/>
+            <MoveToPose action_name="/move_to_pose" cartesian_motion="true" frame_id="tip" position="0.0;0.0;0.05" orientation="0.0;0.0;0.0;1.0"/>
         </Sequence>
      </BehaviorTree>
- </root>  
+</root> 
 
- <!-- <root BTCPP_format="4" >
+Example with object attachment (commented out)
+<root BTCPP_format="4" >
      <BehaviorTree ID="MainTree">
         <Sequence>
             <Sleep msec="1000" />
-            <AttachObject service_name="/attach_object" object_id="dice" target_frame_id="ur10e_tool0"/>
-            <MoveToPose action_name="/move_to_pose" frame_id="ur10e_base_link" position="-0.28;-0.16;0.8" orientation="0.0;0.0;0.0;1.0"/>
+            <AttachObject service_name="/attach_object" object_id="dice" target_frame_id="tip"/>
+            <MoveToPose action_name="/move_to_pose" frame_id="base_link" position="0.4;0.0;0.3" orientation="0.0;0.0;0.0;1.0"/>
             <DetachObject service_name="/detach_object" object_id="dice"/>
-            <MoveToPose action_name="/move_to_pose" frame_id="ur10e_base_link" position="-0.25;-0.16;0.8" orientation="0.0;0.0;0.0;1.0"/>
+            <MoveToPose action_name="/move_to_pose" frame_id="base_link" position="0.45;0.0;0.3" orientation="0.0;0.0;0.0;1.0"/>
         </Sequence>
      </BehaviorTree>
- </root>  -->
+</root> 
+-->

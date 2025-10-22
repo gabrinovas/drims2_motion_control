@@ -28,4 +28,6 @@ public:
   BT::NodeStatus onFeedback(
     const std::shared_ptr<const control_msgs::action::GripperCommand::Feedback> feedback) override;
 
+private:
+  std::string gripper_type_;
 };

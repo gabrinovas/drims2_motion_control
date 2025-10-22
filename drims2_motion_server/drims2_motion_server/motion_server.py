@@ -42,12 +42,30 @@ class MotionServer(Node):
         self.declare_parameter("ik_timeout", 20)
         self.declare_parameter("virtual_end_effector", 'tip') # Used for better visual usage (think movements in tip frame) 
 
+        # Gripper configuration parameters
+        self.declare_parameter('gripper_type', 'onrobot_2fg7')  # Options: 'robotiq', 'onrobot_2fg7'
+        self.declare_parameter('robotiq_gripper_action_name', '/robotiq_action_controller/gripper_cmd')
+        self.declare_parameter('onrobot_gripper_action_name', '/gripper_action')
+
         self.move_group_name = self.get_parameter('move_group_name').get_parameter_value().string_value
         self.end_effector_name = self.get_parameter('end_effector_name').get_parameter_value().string_value
         self.base_link_name = self.get_parameter('base_link_name').get_parameter_value().string_value
         self.joint_names = self.get_parameter('joint_names').get_parameter_value().string_array_value
         self.max_motion_retries = self.get_parameter('max_motion_retries').get_parameter_value().integer_value
         self.virtual_end_effector = self.get_parameter('virtual_end_effector').get_parameter_value().string_value
+
+        # Get gripper configuration
+        self.gripper_type = self.get_parameter('gripper_type').get_parameter_value().string_value
+        self.robotiq_gripper_action_name = self.get_parameter('robotiq_gripper_action_name').get_parameter_value().string_value
+        self.onrobot_gripper_action_name = self.get_parameter('onrobot_gripper_action_name').get_parameter_value().string_value
+
+        # Determine which gripper action server to use
+        if self.gripper_type == "robotiq":
+            self.gripper_action_name = self.robotiq_gripper_action_name
+        else:
+            self.gripper_action_name = self.onrobot_gripper_action_name
+
+        self.get_logger().info(f"Using gripper type: {self.gripper_type}, action: {self.gripper_action_name}")
 
         self.internal_node = Node(
             'motion_server_moveit2_internal_node', use_global_arguments=False, namespace=self.get_namespace())

@@ -32,7 +32,14 @@ def generate_launch_description():
     motion_server_config_path_cmd = DeclareLaunchArgument(
         'bt_executer_config_path',
         default_value=pkg_dir + '/config/behavior_tree_config.yaml',
-        description='Full path to the config file')
+        description='Full path to the config file'
+    )
+
+    gripper_type_cmd = DeclareLaunchArgument(
+        'gripper_type',
+        default_value='onrobot_2fg7',
+        description='Gripper type: robotiq or onrobot_2fg7'
+    )
 
     bt_executer_node = Node(
         package='drims2_behavior_tree',
@@ -41,11 +48,13 @@ def generate_launch_description():
         output='screen',
         parameters=[
             LaunchConfiguration('bt_executer_config_path'),
+            {'gripper_type': LaunchConfiguration('gripper_type')}
         ])
     
     # Create the launch description and populate
     ld = LaunchDescription()
 
     ld.add_action(motion_server_config_path_cmd)
+    ld.add_action(gripper_type_cmd)
     ld.add_action(bt_executer_node)
     return ld

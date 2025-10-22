@@ -19,6 +19,9 @@
   <depend>control_msgs</depend>
   <depend>moveit_msgs</depend>
   <depend>moveit2</depend>
+  
+  <!-- Add OnRobot driver dependency -->
+  <depend>onrobot_driver</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

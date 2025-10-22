@@ -30,11 +30,16 @@ int main(int argc, char ** argv)
   node->declare_parameter("ros_plugins", ros_plugins);
   node->declare_parameter("bt_package", bt_package);
   node->declare_parameter("bt_xml_file", bt_xml_file);
+  
+  // Add gripper type parameter
+  std::string gripper_type;
+  node->declare_parameter("gripper_type", gripper_type);
 
   node->get_parameter("plugins", plugins);
   node->get_parameter("ros_plugins", ros_plugins);
   node->get_parameter("bt_package", bt_package);
   node->get_parameter("bt_xml_file", bt_xml_file);
+  node->get_parameter("gripper_type", gripper_type);
 
 
   BT::BehaviorTreeFactory factory;
@@ -44,6 +49,9 @@ int main(int argc, char ** argv)
   params.nh = node;
   params.server_timeout = std::chrono::milliseconds(10000);
   params.wait_for_server_timeout = std::chrono::milliseconds(10000);
+
+  // Add gripper type to parameters for ROS nodes
+  params.nh->set_parameter(rclcpp::Parameter("gripper_type", gripper_type));
 
   for (const auto & plugin : plugins) {
     RCLCPP_INFO(node->get_logger(), "Loading BT Node: [%s]", plugin.c_str());
@@ -59,6 +67,7 @@ int main(int argc, char ** argv)
   std::string xml_file = pkgpath + "/trees/" + bt_xml_file;
 
   RCLCPP_INFO(node->get_logger(), "Loading BT: [%s]", xml_file.c_str());
+  RCLCPP_INFO(node->get_logger(), "Using gripper type: [%s]", gripper_type.c_str());
 
   BT::Tree tree = factory.createTreeFromFile(xml_file);
 

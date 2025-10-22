@@ -11,3 +11,5 @@ bt_executer_node:
       - attach_object
       - detach_object
     bt_package: drims2_behavior_tree
+    # Add gripper type parameter
+    gripper_type: "onrobot_2fg7"  # Options: "robotiq", "onrobot_2fg7"

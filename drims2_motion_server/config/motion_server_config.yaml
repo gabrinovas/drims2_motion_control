@@ -1,16 +1,22 @@
 motion_server_node:
   ros__parameters:
-    move_group_name: "ur_robot"
-    end_effector_name: "ur10e_tool0"
+    move_group_name: "manipulator"
+    end_effector_name: "tip"
     base_link_name: "base_link"
     joint_names:
-      - 'ur10e_shoulder_pan_joint'
-      - 'ur10e_shoulder_lift_joint'
-      - 'ur10e_elbow_joint'
-      - 'ur10e_wrist_1_joint'
-      - 'ur10e_wrist_2_joint'
-      - 'ur10e_wrist_3_joint'
+      - 'shoulder_pan_joint'
+      - 'shoulder_lift_joint'
+      - 'elbow_joint'
+      - 'wrist_1_joint'
+      - 'wrist_2_joint'
+      - 'wrist_3_joint'
 
+    # Gripper configuration
+    gripper_type: "onrobot_2fg7"  # Options: "robotiq", "onrobot_2fg7"
+    robotiq_gripper_action_name: "/robotiq_action_controller/gripper_cmd"
+    onrobot_gripper_action_name: "/gripper_action"
+    
+    # Motion planning parameters
     cartesian_max_step: 0.0025
     cartesian_fraction_threshold: 0.0
     cartesian_jump_threshold: 0.0
