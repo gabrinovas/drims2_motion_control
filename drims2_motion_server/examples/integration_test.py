@@ -2,51 +2,53 @@
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PoseStamped
 from control_msgs.action import GripperCommand
 from rclpy.action import ActionClient
 
 class IntegrationTest(Node):
     def __init__(self):
         super().__init__('integration_test')
-        
-        # Test motion client
-        from drims2_motion_server.motion_client import MotionClient
-        self.motion_client = MotionClient(gripper_type='onrobot_2fg7')
-        
+        self.gripper_client = ActionClient(self, GripperCommand, '/gripper_action')
         self.get_logger().info("Integration test started")
         
     def test_gripper(self):
-        """Test gripper functionality"""
+        """Test gripper functionality with valid positions"""
         self.get_logger().info("Testing OnRobot 2FG7 Gripper...")
         
-        try:
-            # Test open
-            self.get_logger().info("Opening gripper (75mm)...")
-            success, stalled = self.motion_client.gripper_command(0.075, 50.0)
-            self.get_logger().info(f"Open result: success={success}, stalled={stalled}")
+        # Test valid positions only
+        test_positions = [0.075, 0.055, 0.035]  # Open, Mid, Closed
+        
+        for position in test_positions:
+            self.get_logger().info(f"Testing position: {position}m")
             
-            # Test close  
-            self.get_logger().info("Closing gripper (35mm)...")
-            success, stalled = self.motion_client.gripper_command(0.035, 50.0)
-            self.get_logger().info(f"Close result: success={success}, stalled={stalled}")
+            goal_msg = GripperCommand.Goal()
+            goal_msg.command.position = float(position)
+            goal_msg.command.max_effort = 50.0
             
-            # Test mid position
-            self.get_logger().info("Moving to mid position (55mm)...")
-            success, stalled = self.motion_client.gripper_command(0.055, 30.0)
-            self.get_logger().info(f"Mid result: success={success}, stalled={stalled}")
+            if not self.gripper_client.wait_for_server(timeout_sec=5.0):
+                self.get_logger().error("Gripper server not available")
+                return False
+                
+            future = self.gripper_client.send_goal_async(goal_msg)
+            rclpy.spin_until_future_complete(self, future)
             
-            return True
+            goal_handle = future.result()
+            if not goal_handle.accepted:
+                self.get_logger().error(f"Goal rejected for position {position}m")
+                continue
+                
+            result_future = goal_handle.get_result_async()
+            rclpy.spin_until_future_complete(self, result_future)
             
-        except Exception as e:
-            self.get_logger().error(f"Gripper test failed: {e}")
-            return False
+            result = result_future.result().result
+            self.get_logger().info(f"Position {position}m: reached_goal={result.reached_goal}, stalled={result.stalled}")
+            
+        return True
 
 def main():
     rclpy.init()
     test = IntegrationTest()
     
-    # Run tests
     success = test.test_gripper()
     
     if success:

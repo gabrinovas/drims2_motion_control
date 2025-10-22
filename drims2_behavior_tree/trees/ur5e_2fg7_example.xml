@@ -1,12 +1,13 @@
 <root BTCPP_format="4" >
      <BehaviorTree ID="MainTree">
         <Sequence>
+            <!-- Use valid positions: 0.035m (closed) to 0.075m (open) -->
             <GripperCommand action_name="/gripper_action" position="0.075" max_effort="50.0"/>
             <Sleep msec="1000" />
-            <MoveToPose action_name="/move_to_pose" frame_id="base_link" position="0.4;0.0;0.3" orientation="0.0;0.0;0.0;1.0"/>
+            <MoveToPose action_name="/move_to_pose" frame_id="base_link" position="0.4;0.0;0.5" orientation="0.0;0.0;0.0;1.0"/>
             <GripperCommand action_name="/gripper_action" position="0.035" max_effort="50.0"/>
             <Sleep msec="1000" />
-            <MoveToJoint action_name="/move_to_joint" joint_target="-1.0;-1.83;1.4;5.0;4.9;-3.0"/>
+            <MoveToJoint action_name="/move_to_joint" joint_target="0.0;-1.57;1.57;-1.57;-1.57;0.0"/>
             <GripperCommand action_name="/gripper_action" position="0.075" max_effort="50.0"/>
             <Sleep msec="1000" />
             <MoveToPose action_name="/move_to_pose" cartesian_motion="true" frame_id="tip" position="0.0;0.0;0.05" orientation="0.0;0.0;0.0;1.0"/>
