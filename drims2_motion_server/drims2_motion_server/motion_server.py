@@ -2,7 +2,7 @@ from typing import Optional, Tuple, List
 from threading import Thread
 
 import rclpy
-from rclpy.action import ActionServer, CancelResponse
+from rclpy.action import ActionServer, CancelResponse, ActionClient
 from rclpy.action.server import ServerGoalHandle
 from rclpy.node import Node
 
@@ -14,6 +14,7 @@ from tf2_ros import Buffer, TransformListener, TransformException, TransformBroa
 from pymoveit2 import MoveIt2, MoveIt2State
 from moveit_msgs.msg import MoveItErrorCodes
 from moveit_msgs.srv import GetPositionIK
+from control_msgs.action import GripperCommand
 from drims2_motion_server.drims2_utils import transform_to_affine, pose_stamped_to_affine, affine_to_transform, transform_to_pose_stamped
 import numpy as np
 
@@ -43,7 +44,7 @@ class MotionServer(Node):
         self.declare_parameter("virtual_end_effector", 'tip') # Used for better visual usage (think movements in tip frame) 
 
         # Gripper configuration parameters
-        self.declare_parameter('gripper_type', 'onrobot_2fg7')  # Options: 'robotiq', 'onrobot_2fg7'
+        self.declare_parameter('gripper_type', 'onrobot_2fg7')
         self.declare_parameter('robotiq_gripper_action_name', '/robotiq_action_controller/gripper_cmd')
         self.declare_parameter('onrobot_gripper_action_name', '/gripper_action')
 
@@ -54,7 +55,7 @@ class MotionServer(Node):
         self.max_motion_retries = self.get_parameter('max_motion_retries').get_parameter_value().integer_value
         self.virtual_end_effector = self.get_parameter('virtual_end_effector').get_parameter_value().string_value
 
-        # Get gripper configuration
+        # Gripper configuration
         self.gripper_type = self.get_parameter('gripper_type').get_parameter_value().string_value
         self.robotiq_gripper_action_name = self.get_parameter('robotiq_gripper_action_name').get_parameter_value().string_value
         self.onrobot_gripper_action_name = self.get_parameter('onrobot_gripper_action_name').get_parameter_value().string_value
@@ -103,6 +104,15 @@ class MotionServer(Node):
             execute_callback=self.move_to_joint_callback,
             cancel_callback=self.move_to_joint_cancel_callback,
         )
+        
+        # Gripper action client
+        self.gripper_action_client = ActionClient(
+            self, 
+            GripperCommand, 
+            self.gripper_action_name,
+            callback_group=self.callback_group
+        )
+        
         self.attach_service = self.create_service(
             AttachObject,
             'attach_object',
@@ -124,6 +134,12 @@ class MotionServer(Node):
             )
             raise RuntimeError("Compute IK service not available")
 
+        # Wait for gripper action server
+        if not self.gripper_action_client.wait_for_server(timeout_sec=10.0):
+            self.get_logger().warn(f"Gripper action server not available at {self.gripper_action_name}")
+        else:
+            self.get_logger().info(f"Gripper action server connected: {self.gripper_action_name}")
+
         self.tf_buffer = Buffer()
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -131,6 +147,47 @@ class MotionServer(Node):
         self.internal_util_rate = self.create_rate(10)
         self.T_ee_from_virtual = None
         self.get_logger().info("Motion server is ready to receive requests")
+
+    async def gripper_command(self, position: float, max_effort: float = 50.0) -> bool:
+        """Execute gripper command"""
+        if not self.gripper_action_client.wait_for_server(timeout_sec=5.0):
+            self.get_logger().error("Gripper action server not available")
+            return False
+
+        goal_msg = GripperCommand.Goal()
+        
+        # Handle different gripper types
+        if self.gripper_type == "onrobot_2fg7":
+            # Convert total opening to finger position
+            total_opening = max(0.035, min(0.075, position))
+            finger_position = (total_opening - 0.035) / 2.0
+            goal_msg.command.position = float(finger_position)
+            self.get_logger().info(f"OnRobot 2FG7: total={total_opening:.3f}m, finger={finger_position:.3f}m")
+        else:
+            # Robotiq direct position
+            goal_msg.command.position = float(position)
+            self.get_logger().info(f"Robotiq: position={position:.3f}m")
+        
+        goal_msg.command.max_effort = float(max_effort)
+
+        try:
+            future = self.gripper_action_client.send_goal_async(goal_msg)
+            await future
+            goal_handle = future.result()
+            
+            if not goal_handle.accepted:
+                self.get_logger().error("Gripper goal rejected")
+                return False
+                
+            result_future = goal_handle.get_result_async()
+            await result_future
+            result = result_future.result().result
+            
+            return result.reached_goal and not result.stalled
+            
+        except Exception as e:
+            self.get_logger().error(f"Gripper command failed: {e}")
+            return False
 
     def init_virtual_to_ee_transform(self) -> Optional[TransformStamped]:
         """

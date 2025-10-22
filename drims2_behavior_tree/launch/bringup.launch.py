@@ -1,4 +1,3 @@
-
 # Copyright 2024 National Research Council STIIMA
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,13 +31,18 @@ def generate_launch_description():
     motion_server_config_path_cmd = DeclareLaunchArgument(
         'bt_executer_config_path',
         default_value=pkg_dir + '/config/behavior_tree_config.yaml',
-        description='Full path to the config file'
-    )
+        description='Full path to the config file')
 
     gripper_type_cmd = DeclareLaunchArgument(
         'gripper_type',
         default_value='onrobot_2fg7',
         description='Gripper type: robotiq or onrobot_2fg7'
+    )
+
+    bt_xml_file_cmd = DeclareLaunchArgument(
+        'bt_xml_file',
+        default_value='ur5e_2fg7_example.xml',
+        description='Behavior tree XML file to execute'
     )
 
     bt_executer_node = Node(
@@ -48,7 +52,10 @@ def generate_launch_description():
         output='screen',
         parameters=[
             LaunchConfiguration('bt_executer_config_path'),
-            {'gripper_type': LaunchConfiguration('gripper_type')}
+            {
+                'gripper_type': LaunchConfiguration('gripper_type'),
+                'bt_xml_file': LaunchConfiguration('bt_xml_file')
+            }
         ])
     
     # Create the launch description and populate
@@ -56,5 +63,6 @@ def generate_launch_description():
 
     ld.add_action(motion_server_config_path_cmd)
     ld.add_action(gripper_type_cmd)
+    ld.add_action(bt_xml_file_cmd)
     ld.add_action(bt_executer_node)
     return ld

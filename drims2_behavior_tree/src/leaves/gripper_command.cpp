@@ -6,17 +6,17 @@ GripperCommand::GripperCommand(
   const BT::RosNodeParams & params)
 : RosActionNode<control_msgs::action::GripperCommand>(name, conf, params)
 {
-  // FIX: Proper parameter access
-  auto node = params.nh;
-  if (node->has_parameter("gripper_type")) {
-    gripper_type_ = node->get_parameter("gripper_type").as_string();
+  // Get gripper type parameter
+  std::string gripper_type;
+  if (params.nh->has_parameter("gripper_type")) {
+    gripper_type_ = params.nh->get_parameter("gripper_type").as_string();
   } else {
     // Try to get from global parameters
-    gripper_type_ = node->get_parameter("gripper_type").as_string();
+    gripper_type_ = "onrobot_2fg7"; // default
   }
-  
-  RCLCPP_INFO(node->get_logger(), "GripperCommand initialized with type: %s", gripper_type_.c_str());
+  RCLCPP_INFO(node_.lock()->get_logger(), "GripperCommand initialized with type: %s", gripper_type_.c_str());
 }
+
 bool GripperCommand::setGoal(RosActionNode::Goal & goal)
 {
   RCLCPP_INFO(node_.lock()->get_logger(), "GripperCommand ticked.");

@@ -33,7 +33,7 @@ int main(int argc, char ** argv)
   
   // Add gripper type parameter
   std::string gripper_type;
-  node->declare_parameter("gripper_type", gripper_type);
+  node->declare_parameter("gripper_type", std::string("onrobot_2fg7"));
 
   node->get_parameter("plugins", plugins);
   node->get_parameter("ros_plugins", ros_plugins);
@@ -41,6 +41,7 @@ int main(int argc, char ** argv)
   node->get_parameter("bt_xml_file", bt_xml_file);
   node->get_parameter("gripper_type", gripper_type);
 
+  RCLCPP_INFO(node->get_logger(), "Using gripper type: %s", gripper_type.c_str());
 
   BT::BehaviorTreeFactory factory;
   BT::SharedLibrary loader;
@@ -50,8 +51,8 @@ int main(int argc, char ** argv)
   params.server_timeout = std::chrono::milliseconds(10000);
   params.wait_for_server_timeout = std::chrono::milliseconds(10000);
 
-  // Add gripper type to parameters for ROS nodes
-  params.nh->set_parameter(rclcpp::Parameter("gripper_type", gripper_type));
+  // Ensure gripper_type parameter is set on the node for behavior tree nodes to access
+  node->set_parameter(rclcpp::Parameter("gripper_type", gripper_type));
 
   for (const auto & plugin : plugins) {
     RCLCPP_INFO(node->get_logger(), "Loading BT Node: [%s]", plugin.c_str());
@@ -67,7 +68,6 @@ int main(int argc, char ** argv)
   std::string xml_file = pkgpath + "/trees/" + bt_xml_file;
 
   RCLCPP_INFO(node->get_logger(), "Loading BT: [%s]", xml_file.c_str());
-  RCLCPP_INFO(node->get_logger(), "Using gripper type: [%s]", gripper_type.c_str());
 
   BT::Tree tree = factory.createTreeFromFile(xml_file);
 
