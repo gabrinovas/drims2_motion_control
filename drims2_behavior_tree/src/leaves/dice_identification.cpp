@@ -2,6 +2,8 @@
 
 bool DiceIdentification::setRequest(Request::SharedPtr& request)
 {
+  // Fix unused parameter warning by marking it as used
+  (void)request;
   return true;
 }
 

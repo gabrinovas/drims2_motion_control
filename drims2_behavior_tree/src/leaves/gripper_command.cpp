@@ -6,20 +6,28 @@ GripperCommand::GripperCommand(
   const BT::RosNodeParams & params)
 : RosActionNode<control_msgs::action::GripperCommand>(name, conf, params)
 {
-  // Get gripper type parameter
-  std::string gripper_type;
-  if (params.nh->has_parameter("gripper_type")) {
-    gripper_type_ = params.nh->get_parameter("gripper_type").as_string();
+  // Get node from weak_ptr
+  auto node = params.nh.lock();
+  if (node) {
+    // Check if parameter exists, if not declare it
+    if (!node->has_parameter("gripper_type")) {
+      node->declare_parameter("gripper_type", "onrobot_2fg7");
+    }
+    gripper_type_ = node->get_parameter("gripper_type").as_string();
+    RCLCPP_INFO(node->get_logger(), "GripperCommand initialized with type: %s", gripper_type_.c_str());
   } else {
-    // Try to get from global parameters
-    gripper_type_ = "onrobot_2fg7"; // default
+    // Fallback if node is not available
+    gripper_type_ = "onrobot_2fg7";
+    RCLCPP_WARN(rclcpp::get_logger("GripperCommand"), "Node not available, using default gripper type: %s", gripper_type_.c_str());
   }
-  RCLCPP_INFO(node_.lock()->get_logger(), "GripperCommand initialized with type: %s", gripper_type_.c_str());
 }
 
 bool GripperCommand::setGoal(RosActionNode::Goal & goal)
 {
-  RCLCPP_INFO(node_.lock()->get_logger(), "GripperCommand ticked.");
+  auto node = node_.lock();
+  if (node) {
+    RCLCPP_INFO(node->get_logger(), "GripperCommand ticked.");
+  }
 
   // Required fields: position, max_effort
   double position;
@@ -39,14 +47,20 @@ bool GripperCommand::setGoal(RosActionNode::Goal & goal)
     double total_opening = std::max(0.035, std::min(0.075, position));
     double finger_position = (total_opening - 0.035) / 2.0;
     goal.command.position = finger_position;
-    RCLCPP_INFO(node_.lock()->get_logger(), 
-                "OnRobot 2FG7: total opening=%.3fm, finger position=%.3fm", 
-                total_opening, finger_position);
+    
+    if (node) {
+      RCLCPP_INFO(node->get_logger(), 
+                  "OnRobot 2FG7: total opening=%.3fm, finger position=%.3fm", 
+                  total_opening, finger_position);
+    }
   } else {
     // Robotiq: Use position directly (0.0 to 0.79)
     goal.command.position = position;
-    RCLCPP_INFO(node_.lock()->get_logger(), 
-                "Robotiq: position=%.3fm", position);
+    
+    if (node) {
+      RCLCPP_INFO(node->get_logger(), 
+                  "Robotiq: position=%.3fm", position);
+    }
   }
 
   goal.command.max_effort = max_effort;
@@ -55,14 +69,20 @@ bool GripperCommand::setGoal(RosActionNode::Goal & goal)
 
 BT::NodeStatus GripperCommand::onResultReceived(const RosActionNode::WrappedResult & wr)
 {
-  RCLCPP_INFO(node_.lock()->get_logger(), "%s: onResultReceived.", name().c_str());
+  auto node = node_.lock();
+  if (node) {
+    RCLCPP_INFO(node->get_logger(), "%s: onResultReceived.", name().c_str());
+  }
+  
   if(wr.result->reached_goal)
   {
     return  BT::NodeStatus::SUCCESS;
   }
   else if (wr.result->stalled)
   {
-    RCLCPP_INFO(node_.lock()->get_logger(), "Gripper stalled");
+    if (node) {
+      RCLCPP_INFO(node->get_logger(), "Gripper stalled");
+    }
     return BT::NodeStatus::SUCCESS;
   }
   else{
@@ -72,7 +92,10 @@ BT::NodeStatus GripperCommand::onResultReceived(const RosActionNode::WrappedResu
 
 BT::NodeStatus GripperCommand::onFailure(BT::ActionNodeErrorCode error)
 {
-  RCLCPP_ERROR( node_.lock()->get_logger(), "%s: onFailure with error: %s", name().c_str(), toStr(error) );
+  auto node = node_.lock();
+  if (node) {
+    RCLCPP_ERROR(node->get_logger(), "%s: onFailure with error: %s", name().c_str(), toStr(error));
+  }
   return BT::NodeStatus::FAILURE;
 }
 
